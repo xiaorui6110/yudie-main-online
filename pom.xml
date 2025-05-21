@@ -38,21 +38,21 @@
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-jsqlparser-4.9</artifactId>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.boot</groupId>-->
-<!--            <artifactId>spring-boot-starter-data-redis</artifactId>-->
-<!--        </dependency>-->
-<!--        &lt;!&ndash; Spring Session + Redis &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.session</groupId>-->
-<!--            <artifactId>spring-session-data-redis</artifactId>-->
-<!--        </dependency>-->
-<!--        &lt;!&ndash; Redisson 分布式锁 &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>org.redisson</groupId>-->
-<!--            <artifactId>redisson</artifactId>-->
-<!--            <version>3.21.0</version>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!-- Spring Session + Redis -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+        <!-- Redisson 分布式锁 -->
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+            <version>3.21.0</version>
+        </dependency>
 <!--        &lt;!&ndash; 本地缓存 Caffeine &ndash;&gt;-->
 <!--        <dependency>-->
 <!--            <groupId>com.github.ben-manes.caffeine</groupId>-->
@@ -82,11 +82,11 @@
 <!--            <artifactId>sa-token-redis-jackson</artifactId>-->
 <!--            <version>1.39.0</version>-->
 <!--        </dependency>-->
-<!--        &lt;!&ndash; 提供Redis连接池 &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>org.apache.commons</groupId>-->
-<!--            <artifactId>commons-pool2</artifactId>-->
-<!--        </dependency>-->
+        <!-- 提供Redis连接池 -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+        </dependency>
 <!--        &lt;!&ndash; 分库分表 &ndash;&gt;-->
 <!--        <dependency>-->
 <!--            <groupId>org.apache.shardingsphere</groupId>-->
@@ -118,11 +118,11 @@
             <version>4.4.0</version>
         </dependency>
         <!-- 邮箱 -->
-<!--        <dependency>-->
-<!--            <groupId>com.sun.mail</groupId>-->
-<!--            <artifactId>javax.mail</artifactId>-->
-<!--            <version>1.6.2</version>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>com.sun.mail</groupId>
+            <artifactId>javax.mail</artifactId>
+            <version>1.6.2</version>
+        </dependency>
         <!-- 数据库连接 -->
         <dependency>
             <groupId>com.mysql</groupId>
