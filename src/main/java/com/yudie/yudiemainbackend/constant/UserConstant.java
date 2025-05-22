@@ -1,0 +1,25 @@
+package com.yudie.yudiemainbackend.constant;
+
+/**
+ * @description: 用户常量
+ * @author: siri
+ * @date: 2025-05-22 10:40
+ **/
+public interface UserConstant {
+
+    /**
+     * 用户登录态键
+     */
+    String USER_LOGIN_STATE = "user_login";
+
+    /**
+     * 默认角色
+     */
+    String DEFAULT_ROLE = "user";
+
+    /**
+     * 管理员角色
+     */
+    String ADMIN_ROLE = "admin";
+
+}

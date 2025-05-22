@@ -18,14 +18,13 @@ CREATE TABLE IF NOT EXISTS user
     CONSTRAINT uk_userAccount
     UNIQUE (userAccount)
     )
-    COMMENT '用户' COLLATE = utf8mb4_unicode_ci;
+    COMMENT '用户表' COLLATE = utf8mb4_unicode_ci;
 
 CREATE INDEX idx_userEmail
     ON user (userEmail);
 
 CREATE INDEX idx_userName
     ON user (userName);
-
 
 
 

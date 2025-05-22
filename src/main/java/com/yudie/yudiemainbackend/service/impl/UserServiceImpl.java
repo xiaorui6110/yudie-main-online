@@ -1,26 +1,45 @@
 package com.yudie.yudiemainbackend.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.repository.AbstractRepository;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.sun.xml.internal.bind.v2.TODO;
 import com.yudie.yudiemainbackend.constant.CommonValue;
+import com.yudie.yudiemainbackend.constant.RedisConstant;
+import com.yudie.yudiemainbackend.constant.UserConstant;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
+import com.yudie.yudiemainbackend.exception.ThrowUtils;
+import com.yudie.yudiemainbackend.model.dto.user.UserModifyPassWord;
+import com.yudie.yudiemainbackend.model.dto.user.UserQueryRequest;
 import com.yudie.yudiemainbackend.model.entity.User;
 import com.yudie.yudiemainbackend.model.enums.UserRoleEnum;
+import com.yudie.yudiemainbackend.model.vo.LoginUserVO;
+import com.yudie.yudiemainbackend.model.vo.UserVO;
 import com.yudie.yudiemainbackend.service.UserService;
 import com.yudie.yudiemainbackend.mapper.UserMapper;
 import com.yudie.yudiemainbackend.utils.EmailSenderUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
 * @author lenovo
@@ -33,7 +52,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private final int MIN_USERPASSWORD_LENGTH = 6;
 
-    private final int MAX_USERPASSWORD_LENGTH = 24;
+    private final int MAX_USERPASSWORD_LENGTH = 36;
 
     private final int MAX_IPCOUNT = 5;
 
@@ -44,6 +63,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Resource
     private EmailSenderUtil emailSenderUtil;
+
+    @Resource
+    private UserMapper userMapper;
 
     /**
      * 用户注册
@@ -64,8 +86,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (!userEmail.matches("^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+$")) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱格式错误");
         }
-        if (userPassword.length() < MIN_USERPASSWORD_LENGTH || userPassword.length() > MAX_USERPASSWORD_LENGTH) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度过短或过长");
+        if (userPassword.length() < MIN_USERPASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度过短");
+        }
+        if (userPassword.length() > MAX_USERPASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度过长");
         }
         if (!userPassword.equals(checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"两次输入的密码不一致");
@@ -181,14 +206,456 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
 
+    /**
+     * 用户登录
+     * @param accountOrEmail 账号或邮箱
+     * @param userPassword 用户密码
+     * @param request HTTP请求
+     * @return 登录后的用户信息视图对象（LoginUserVO）
+     */
+    @Override
+    public LoginUserVO userLogin(String accountOrEmail, String userPassword, HttpServletRequest request) {
+        // 1.校验用户输入信息
+        if (StrUtil.hasBlank(accountOrEmail, userPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数为空");
+        }
+        if (userPassword.length() < MIN_USERPASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度过短");
+        }
+        if (userPassword.length() > MAX_USERPASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度过长");
+        }
+        // 密码加密（用于后续查询）
+        String encryptPassword = DigestUtil.md5Hex(CommonValue.DEFAULT_SALT + userPassword);
+        // 2.查询用户信息
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("userPassword", encryptPassword)
+                .and( wrapper -> wrapper.eq("userAccount", accountOrEmail)
+                        .or()
+                        .eq("userEmail", accountOrEmail));
+        User user = this.getOne(queryWrapper);
+        // 用户不存在
+        if (user == null) {
+            log.info("user login failed, accountOrEmail cannot match userPassword");
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"用户不存在或密码错误");
+        }
+        // 3.记录用户登录态
+        // TODO 先设置 Sa-Token 登录态，再在 Sa-Token Session 中存入完整的用户信息
+        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, user);
+        // 4.返回用户信息
+        LoginUserVO loginUserVO = new LoginUserVO();
+        BeanUtil.copyProperties(user, loginUserVO);
+        return loginUserVO;
+    }
 
 
+    /**
+     * 验证用户输入的验证码是否正确
+     * @param userInputCaptcha 用户输入的验证码
+     * @param serverVerifyCode 服务器端存储的加密后的验证码
+     * @return 是否正确
+     */
+    @Override
+    public boolean validateCaptcha(String userInputCaptcha, String serverVerifyCode) {
+        if (userInputCaptcha != null && serverVerifyCode != null) {
+            String encryptedVerifycode = DigestUtil.md5Hex(userInputCaptcha);
+            if (encryptedVerifycode.equals(serverVerifyCode)) {
+                return true;
+            }
+        }
+        throw new BusinessException(ErrorCode.PARAMS_ERROR,"验证码错误");
+    }
 
 
+    /**
+     * 获取当前登录用户
+     * @param request HTTP请求
+     * @return 当前登录用户信息（完整信息，包括密码等）
+     */
+    @Override
+    public User getLoginUser(HttpServletRequest request) {
+        try {
+            // TODO 优先从 Sa-Token 中获取登录信息
+            // 1.从 Session 中获取登录信息
+            Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+            User currentUser = (User) userObj;
+            if (currentUser == null || currentUser.getId() == null) {
+                throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+            }
+            // 2.查询数据库获取用户信息
+            long userId = currentUser.getId();
+            currentUser = this.getById(userId);
+            if (currentUser == null) {
+                throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+            }
+            // TODO 更新 Sa-Token 中的用户信息
+            // 3.返回用户信息
+            return currentUser;
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+    }
 
 
+    /**
+     * 判断是否是登录态
+     * @param request  HTTP请求
+     * @return 是否登录
+     */
+    @Override
+    public User isLogin(HttpServletRequest request) {
+        // 1.从 Session 中获取登录信息
+        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+        User currentUser = (User) userObj;
+        if (currentUser == null || currentUser.getId() == null) {
+            return null;
+        }
+        // 2.查询数据库获取用户信息
+        Long userId = currentUser.getId();
+        currentUser = this.getById(userId);
+        if (currentUser == null) {
+            return null;
+        }
+        return currentUser;
+    }
 
 
+    /**
+     * 获得脱敏后的登录用户信息
+     * @param user 用户
+     * @return 脱敏后的登录用户信息
+     */
+    @Override
+    public LoginUserVO getLoginUserVO(User user) {
+        if (user == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR, "未登录");
+        }
+        LoginUserVO loginUserVO = new LoginUserVO();
+        BeanUtil.copyProperties(user, loginUserVO);
+        return loginUserVO;
+    }
+
+
+    /**
+     * 用户退出登录
+     * @param request HTTP请求
+     * @return 是否退出登录
+     */
+    @Override
+    public boolean userLogout(HttpServletRequest request) {
+        // 1.判断是否登录
+        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+        if (userObj == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR, "未登录");
+        }
+        // 2.移除 Spring Session 登录态
+        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
+        // TODO 移除 Sa-Token 登录态
+        return true;
+    }
+
+    /**
+     * 获得脱敏后的用户信息
+     * @param user 用户
+     * @return 脱敏后的用户信息
+     */
+    @Override
+    public UserVO getUserVO(User user) {
+        if (user == null) {
+            return null;
+        }
+        UserVO userVO = new UserVO();
+        BeanUtil.copyProperties(user, userVO);
+        return userVO;
+    }
+
+    /**
+     * 获取脱敏后的用户列表
+     * @param userList 用户列表
+     * @return 脱敏后的用户列表
+     */
+    @Override
+    public List<UserVO> getUserVOList(List<User> userList) {
+        if (CollUtil.isEmpty(userList)) {
+            return new ArrayList<>();
+        }
+        return userList.stream()
+                .map(this::getUserVO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 获取查询条件
+     * @param userQueryRequest 用户查询请求
+     * @return 查询条件
+     */
+    @Override
+    public QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest) {
+        ThrowUtils.throwIf(userQueryRequest == null, ErrorCode.PARAMS_ERROR,"请求参数为空");
+        // 1.获取查询参数
+        Long id = userQueryRequest.getId();
+        String userName = userQueryRequest.getUserName();
+        String userAccount = userQueryRequest.getUserAccount();
+        String userProfile = userQueryRequest.getUserProfile();
+        String userRole = userQueryRequest.getUserRole();
+        String sortField = userQueryRequest.getSortField();
+        String sortOrder = userQueryRequest.getSortOrder();
+        // 2.构造查询条件
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq(ObjUtil.isNotNull(id), "id", id);
+        queryWrapper.eq(StrUtil.isNotBlank(userName), "userName", userName);
+        queryWrapper.like(StrUtil.isNotBlank(userAccount), "userAccount", userAccount);
+        queryWrapper.like(StrUtil.isNotBlank(userProfile), "userProfile", userProfile);
+        queryWrapper.eq(StrUtil.isNotBlank(userRole), "userRole", userRole);
+        queryWrapper.orderBy(StrUtil.isNotEmpty(sortField), "ascend".equals(sortOrder), sortField);
+        return queryWrapper;
+    }
+
+    /**
+     * 修改密码
+     * @param userModifyPassWord 用户修改密码
+     * @param request HTTP请求
+     * @return 是否修改成功
+     */
+    @Override
+    public boolean changePassword(UserModifyPassWord userModifyPassWord, HttpServletRequest request) {
+        // 1.校验用户输入信息
+        if(StrUtil.hasBlank(userModifyPassWord.getOldPassword(), userModifyPassWord.getNewPassword(), userModifyPassWord.getCheckPassword())){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数不能为空");
+        }
+        if(!userModifyPassWord.getNewPassword().equals(userModifyPassWord.getCheckPassword())){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
+        }
+        if (userModifyPassWord.getCheckPassword().length() < MIN_USERPASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"新密码长度过短");
+        }
+        if (userModifyPassWord.getNewPassword().length() > MAX_USERPASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"新密码长度过长");
+        }
+        // 2.查询用户信息
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("id", userModifyPassWord.getId());
+        String encryptPassword = getEncryptPassword(userModifyPassWord.getOldPassword());
+        queryWrapper.eq("userPassword", encryptPassword);
+        User user = userMapper.selectOne(queryWrapper);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"原密码错误");
+        }
+        // 3.修改密码
+        user.setUserPassword(getEncryptPassword(userModifyPassWord.getNewPassword()));
+        int updateResult = userMapper.updateById(user);
+        // TODO 更新 ES
+        // 4.返回修改结果
+        return updateResult > 0;
+    }
+
+    /**
+     * 判断是否是管理员
+     * @param user 登录用户
+     * @return 是否是管理员
+     */
+    @Override
+    public boolean isAdmin(User user) {
+        return user != null && UserRoleEnum.ADMIN_ROLE_ENUM.getValue().equals(user.getUserRole());
+    }
+
+    /**
+     * 修改用户头像
+     * @param multipartFile 文件
+     * @param id 用户 id
+     * @param request HTTP请求
+     * @return 上传图片的 URL
+     */
+    @Override
+    public String updateUserAvatar(MultipartFile multipartFile, Long id, HttpServletRequest request) {
+
+        // TODO 修改用户头像，待图片模块完成
+
+        return null;
+    }
+
+    /**
+     * 获取验证码
+     * @return 验证码
+     */
+    @Override
+    public Map<String, String> getCaptcha() {
+
+        // TODO 生成验证码，待图片模块完成
+
+        return null;
+    }
+
+    /**
+     * 修改邮箱
+     * @param newEmail 新邮箱
+     * @param code 验证码
+     * @param request HTTP请求
+     * @return 修改邮箱结果
+     */
+    @Override
+    public boolean changeEmail(String newEmail, String code, HttpServletRequest request) {
+        // 1.校验用户输入信息
+        if (StrUtil.hasBlank(newEmail, code)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数为空");
+        }
+        if (!newEmail.matches("^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+$")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱格式错误");
+        }
+        // 2.校验验证码
+        String verifyCodeKey = String.format("email:code:verify:changeEmail:%s", newEmail);
+        String correctCode = stringRedisTemplate.opsForValue().get(verifyCodeKey);
+        if (StrUtil.isBlank(correctCode) || !correctCode.equals(code)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"验证码错误或已过期");
+        }
+        // 3.查询用户信息
+        User loginUser = getLoginUser(request);
+        synchronized (newEmail.intern()) {
+            // 检查新邮箱是否已被使用
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("userEmail", newEmail);
+            long count = this.baseMapper.selectCount(queryWrapper);
+            if (count > 0) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱已被使用");
+            }
+            // 4.修改邮箱
+            User user = new User();
+            user.setId(loginUser.getId());
+            user.setUserEmail(newEmail);
+            boolean updateResult = this.updateById(user);
+            if (!updateResult) {
+                throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,"修改邮箱失败");
+            }
+            // 5.删除验证码
+            stringRedisTemplate.delete(verifyCodeKey);
+            // 6.返回修改结果
+            return true;
+        }
+    }
+
+    /**
+     * 重置密码（忘记密码的情况下）
+     * @param userEmail 用户邮箱
+     * @param newPassword 新密码
+     * @param checkPassword 确认密码
+     * @param code 验证码
+     * @return 重置密码结果
+     */
+    @Override
+    public boolean resetPassword(String userEmail, String newPassword, String checkPassword, String code) {
+        // 1.校验用户输入信息
+        if (StrUtil.hasBlank(userEmail, newPassword, checkPassword, code)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
+        }
+        if (!userEmail.matches("^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+$")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱格式错误");
+        }
+        if (newPassword.length() < MIN_USERPASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度过短");
+        }
+        if (newPassword.length() > MAX_USERPASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度过长");
+        }
+        if (!newPassword.equals(checkPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"两次输入的密码不一致");
+        }
+        // 2.校验验证码
+        String verifyCodeKey = String.format("email:code:verify:changeEmail:%s", userEmail);
+        String correctCode = stringRedisTemplate.opsForValue().get(verifyCodeKey);
+        if (StrUtil.isBlank(correctCode) || !correctCode.equals(code)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"验证码错误或已过期");
+        }
+        // 3.查询用户信息
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("userEmail", userEmail);
+        User user = this.getOne(queryWrapper);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"用户不存在");
+        }
+        // 4.修改密码
+        User updateUser = new User();
+        updateUser.setId(user.getId());
+        updateUser.setUserPassword(getEncryptPassword(newPassword));
+        boolean updateResult = this.updateById(updateUser);
+        if (updateResult) {
+            // 5.删除验证码
+            stringRedisTemplate.delete(verifyCodeKey);
+        }
+        // 6.返回修改结果
+        return updateResult;
+
+    }
+
+    /**
+     * 封禁或解禁用户
+     * @param userId 目标用户 id
+     * @param isUnban true - 解禁，false - 封禁
+     * @param admin 执行操作的管理员
+     * @return 封禁或解禁结果
+     */
+    @Override
+    public boolean banOrUnbanUser(Long userId, Boolean isUnban, User admin) {
+        // 1.校验用户输入信息
+        if (userId == null || userId <= 0 || isUnban == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        // 2.校验管理员权限
+        if (!UserConstant.ADMIN_ROLE.equals(admin.getUserRole())) {
+            throw new BusinessException(ErrorCode.NOT_AUTH_ERROR, "非管理员不能执行此操作");
+        }
+        // 3.获取用户信息
+        User targetUser = this.getById(userId);
+        if (targetUser == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+        }
+        // 4.检查当前状态是否需要变更
+
+        // 5.变更用户状态
+
+        // 6.记录操作日志
+
+        // 7.处理 Redis 缓存
+
+        // TODO 8.更新 ES 中的用户信息
+
+        // 9.返回变更结果
+        return false;
+    }
+
+    /**
+     * 异步删除用户数据
+     * @param id 目标用户 id
+     */
+    @Override
+    @Async("asyncExecutor")
+    public void asyncDeleteUserData(Long id) {
+        // TODO 需完成图片模块
+    }
+
+    /**
+     * 添加用户签到记录
+     * @param userId 用户 id
+     * @return 当前用户是否已签到成功
+     */
+    @Override
+    public boolean addUserSignIn(long userId) {
+
+        // TODO
+
+        return false;
+    }
+
+    /**
+     * 获取用户某个年份的签到记录
+     * @param userId 用户 id
+     * @param year 年份（为空表示当前年份）
+     * @return 用户签到记录
+     */
+    @Override
+    public List<Integer> getUserSignInRecord(long userId, Integer year) {
+
+        // TODO
+
+        return null;
+    }
 }
-
-
