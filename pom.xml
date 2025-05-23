@@ -93,12 +93,12 @@
 <!--            <artifactId>shardingsphere-jdbc-core-spring-boot-starter</artifactId>-->
 <!--            <version>5.2.0</version>-->
 <!--        </dependency>-->
-<!--        &lt;!&ndash; 对象存储 &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>com.qcloud</groupId>-->
-<!--            <artifactId>cos_api</artifactId>-->
-<!--            <version>5.6.227</version>-->
-<!--        </dependency>-->
+        <!-- 对象存储 -->
+        <dependency>
+            <groupId>com.qcloud</groupId>
+            <artifactId>cos_api</artifactId>
+            <version>5.6.227</version>
+        </dependency>
         <!-- hutool 工具库：https://doc.hutool.cn/pages/index/ -->
         <dependency>
             <groupId>cn.hutool</groupId>
@@ -106,11 +106,11 @@
             <version>5.8.26</version>
         </dependency>
         <!-- HTML 解析：https://jsoup.org/ -->
-<!--        <dependency>-->
-<!--            <groupId>org.jsoup</groupId>-->
-<!--            <artifactId>jsoup</artifactId>-->
-<!--            <version>1.15.3</version>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.15.3</version>
+        </dependency>
         <!-- knife4j 接口文档：https://doc.xiaominfo.com/docs/quick-start#spring-boot-2-->
         <dependency>
             <groupId>com.github.xiaoymin</groupId>

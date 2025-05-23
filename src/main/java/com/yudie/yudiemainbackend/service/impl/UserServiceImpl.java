@@ -1,5 +1,8 @@
 package com.yudie.yudiemainbackend.service.impl;
 
+import cn.hutool.captcha.CaptchaUtil;
+import cn.hutool.captcha.ShearCaptcha;
+import cn.hutool.captcha.generator.RandomGenerator;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
@@ -8,18 +11,18 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.extension.repository.AbstractRepository;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.sun.xml.internal.bind.v2.TODO;
 import com.yudie.yudiemainbackend.constant.CommonValue;
 import com.yudie.yudiemainbackend.constant.RedisConstant;
 import com.yudie.yudiemainbackend.constant.UserConstant;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
+import com.yudie.yudiemainbackend.mapper.UserSignInRecordMapper;
 import com.yudie.yudiemainbackend.model.dto.user.UserModifyPassWord;
 import com.yudie.yudiemainbackend.model.dto.user.UserQueryRequest;
 import com.yudie.yudiemainbackend.model.entity.User;
+import com.yudie.yudiemainbackend.model.entity.UserSignInRecord;
 import com.yudie.yudiemainbackend.model.enums.UserRoleEnum;
 import com.yudie.yudiemainbackend.model.vo.LoginUserVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
@@ -27,17 +30,19 @@ import com.yudie.yudiemainbackend.service.UserService;
 import com.yudie.yudiemainbackend.mapper.UserMapper;
 import com.yudie.yudiemainbackend.utils.EmailSenderUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RBitSet;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
+import org.redisson.api.RedissonClient;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.io.ByteArrayOutputStream;
+import java.time.Duration;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -66,6 +71,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Resource
     private UserMapper userMapper;
+
+    @Resource
+    private RedissonClient redissonClient;
+
+    @Resource
+    private UserSignInRecordMapper userSignInRecordMapper;
 
     /**
      * 用户注册
@@ -141,7 +152,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
     }
 
-
     /**
      * 获取加密后的密码
      *
@@ -154,7 +164,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return SecureUtil.md5(CommonValue.DEFAULT_SALT + userPassword);
     }
 
-
     /**
      * 发送邮箱验证码
      * @param userEmail 用户邮箱
@@ -166,7 +175,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (StrUtil.hasBlank(userEmail, type)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数为空");
         }
-        // TODO  检测高频操作 crawlerManager
+
+        // TODO  检测高频操作 crawlerManager ，待图片模块完成
+
         // 检查邮箱格式
         if (!userEmail.matches("^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+$")) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱格式错误");
@@ -204,7 +215,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         stringRedisTemplate.opsForValue().set(verifyCodeKey, code, 5, TimeUnit.MINUTES);
 
     }
-
 
     /**
      * 用户登录
@@ -248,7 +258,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return loginUserVO;
     }
 
-
     /**
      * 验证用户输入的验证码是否正确
      * @param userInputCaptcha 用户输入的验证码
@@ -265,7 +274,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         throw new BusinessException(ErrorCode.PARAMS_ERROR,"验证码错误");
     }
-
 
     /**
      * 获取当前登录用户
@@ -296,7 +304,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
     }
 
-
     /**
      * 判断是否是登录态
      * @param request  HTTP请求
@@ -319,7 +326,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return currentUser;
     }
 
-
     /**
      * 获得脱敏后的登录用户信息
      * @param user 用户
@@ -334,7 +340,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         BeanUtil.copyProperties(user, loginUserVO);
         return loginUserVO;
     }
-
 
     /**
      * 用户退出登录
@@ -444,7 +449,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 3.修改密码
         user.setUserPassword(getEncryptPassword(userModifyPassWord.getNewPassword()));
         int updateResult = userMapper.updateById(user);
+
         // TODO 更新 ES
+
         // 4.返回修改结果
         return updateResult > 0;
     }
@@ -480,10 +487,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public Map<String, String> getCaptcha() {
-
-        // TODO 生成验证码，待图片模块完成
-
-        return null;
+        // 仅包含数字的字符集
+        String characters = "0123456789";
+        // 生成 4 位数字验证码
+        RandomGenerator randomGenerator = new RandomGenerator(characters, 4);
+        // 定义图片的显示大小，并创建验证码对象
+        ShearCaptcha shearCaptcha = CaptchaUtil.createShearCaptcha(320, 100, 4, 4);
+        shearCaptcha.setGenerator(randomGenerator);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        shearCaptcha.write(outputStream);
+        byte[] captchaBytes = outputStream.toByteArray();
+        String base64Captcha = Base64.getEncoder().encodeToString(captchaBytes);
+        String captchaCode = shearCaptcha.getCode();
+        // 使用 Hutool 的 MD5 加密
+        String encryptedCaptcha = DigestUtil.md5Hex(captchaCode);
+        // 将加密后的验证码和 Base64 编码的图片存储到 Redis 中，设置过期时间为 5 分钟
+        stringRedisTemplate.opsForValue().set("captcha:" + encryptedCaptcha, captchaCode, 300, TimeUnit.SECONDS);
+        Map<String, String> data = new HashMap<>();
+        data.put("base64Captcha", base64Captcha);
+        data.put("encryptedCaptcha", encryptedCaptcha);
+        return data;
     }
 
     /**
@@ -629,7 +652,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Async("asyncExecutor")
     public void asyncDeleteUserData(Long id) {
+
         // TODO 需完成图片模块
+
     }
 
     /**
@@ -639,10 +664,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public boolean addUserSignIn(long userId) {
-
-        // TODO
-
-        return false;
+        LocalDate date = LocalDate.now();
+        int currentYear = date.getYear();
+        String redisKey = RedisConstant.getUserSignInRedisKey(currentYear, userId);
+        // 获取 Redis 的 BitMap
+        RBitSet signInBitSet = redissonClient.getBitSet(redisKey);
+        int daOfYear = date.getDayOfYear();
+        // 1.判断用户是否已签到
+        if (!signInBitSet.get(daOfYear)) {
+            // 2.如果当前未签到，则签到
+            signInBitSet.set(daOfYear, true);
+            // 设置 Redis 键的过期时间到当年最后一天
+            LocalDate lastDayOfYear = LocalDate.of(currentYear, 12, 31);
+            Duration timeUntilEndOfYear = Duration.between(
+                    LocalDateTime.now(),
+                    lastDayOfYear.atTime(23, 59, 59)
+            );
+            redissonClient.getBucket(redisKey).expire(timeUntilEndOfYear);
+        }
+        // 3.返回签到结果
+        return true;
     }
 
     /**
@@ -653,9 +694,70 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public List<Integer> getUserSignInRecord(long userId, Integer year) {
-
-        // TODO
-
-        return null;
+        if (year == null) {
+            year = LocalDate.now().getYear();
+        }
+        int currentYear = LocalDate.now().getYear();
+        List<Integer> signInDays = new ArrayList<>();
+        if (year != currentYear) {
+            // 1.如果不是当前年份，则直接从数据库查询
+            QueryWrapper<UserSignInRecord> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("user_id", userId)
+                    .eq("year", year);
+            UserSignInRecord record  = userSignInRecordMapper.selectOne(queryWrapper);
+            if (record != null && record.getSignInData()!= null) {
+                byte[] signInData = record.getSignInData();
+                // 2.解析 bitmap 数据
+                final int YEAR_OF_DAYS = 366;
+                for (int day = 1; day <= YEAR_OF_DAYS; day++) {
+                    int byteIndex = (day - 1) / 8;
+                    int bitIndex = (day - 1) % 8;
+                    if ((signInData[byteIndex] & (1 << bitIndex)) != 0) {
+                        signInDays.add(day);
+                    }
+                }
+            }
+            return signInDays;
+        }
+        // 3.当年数据则从 Redis 中获取
+        String redisKey = RedisConstant.getUserSignInRedisKey(year, userId);
+        RBitSet signInBitSet = redissonClient.getBitSet(redisKey);
+        // 如果 Redis 中没有数据，则从数据库中查询
+        if (!signInBitSet.isExists()) {
+            QueryWrapper<UserSignInRecord> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("userId", userId)
+                    .eq("year", year);
+            UserSignInRecord record  = userSignInRecordMapper.selectOne(queryWrapper);
+            if (record != null && record.getSignInData()!= null) {
+                byte[] signInData = record.getSignInData();
+                // 解析 bitmap 数据
+                final int YEAR_OF_DAYS = 366;
+                for (int day = 1; day <= YEAR_OF_DAYS; day++) {
+                    int byteIndex = (day - 1) / 8;
+                    int bitIndex = (day - 1) % 8;
+                    if ((signInData[byteIndex] & (1 << bitIndex)) != 0) {
+                        signInDays.add(day);
+                    }
+                }
+                // 设置过期时间到年底
+                LocalDate lastDayOfYear = LocalDate.of(year, 12, 31);
+                Duration timeUntilEndOfYear = Duration.between(
+                        LocalDateTime.now(),
+                        lastDayOfYear.atTime(23, 59, 59)
+                );
+                redissonClient.getBucket(redisKey).expire(timeUntilEndOfYear);
+            }
+        }
+        // 4.返回签到记录
+        // 从 Redis 的 bitmap 中获取签到记录
+        BitSet bitSet = signInBitSet.asBitSet();
+        int index = bitSet.nextSetBit(0);
+        while (index >= 0) {
+            signInDays.add(index);
+            index = bitSet.nextSetBit(index + 1);
+        }
+        return signInDays;
     }
+
+
 }

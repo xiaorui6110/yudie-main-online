@@ -18,12 +18,16 @@ import com.yudie.yudiemainbackend.model.vo.LoginUserVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
 import com.yudie.yudiemainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @description: 用户接口类
@@ -66,7 +70,7 @@ public class UserController {
      * @param request HTTP请求
      * @return 发送结果
      */
-    @PostMapping("/sendEmailCode")
+    @PostMapping("/send_email_code")
     public BaseResponse<String> sendEmailCode(@RequestBody EmailCodeRequest emailCodeRequest, HttpServletRequest request) {
         if(emailCodeRequest == null || StrUtil.hasBlank(emailCodeRequest.getUserEmail(), emailCodeRequest.getType())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -206,6 +210,18 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
+    /**
+     * 修改密码
+     * @param userModifyPassWord 用户修改密码
+     * @param request HTTP请求
+     * @return 是否修改成功
+     */
+    @PostMapping("/change/password")
+    public BaseResponse<Boolean> changePassword(@RequestBody UserModifyPassWord userModifyPassWord, HttpServletRequest request) {
+        ThrowUtils.throwIf(userModifyPassWord == null, ErrorCode.PARAMS_ERROR);
+        boolean result = userService.changePassword(userModifyPassWord, request);
+        return ResultUtils.success(result);
+    }
 
     /**
      * 重置密码
@@ -249,9 +265,87 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
+    /**
+     * 更新用户信息
+     * @param userUpdateRequest 更新用户信息请求
+     * @return 是否更新成功
+     */
+    @PostMapping("/update")
+    public BaseResponse<Boolean> updateUser(@RequestBody UserUpdateRequest userUpdateRequest, HttpServletRequest request) {
+        if (userUpdateRequest == null || userUpdateRequest.getId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        // 判断是否是管理员，管理员可以更新任意用户，普通用户只能更新自己
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser == null || !UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole())) {
+            userUpdateRequest.setUserRole(UserConstant.DEFAULT_ROLE);
+        }
+        User user = new User();
+        BeanUtil.copyProperties(userUpdateRequest, user);
+        boolean result = userService.updateById(user);
+
+        // TODO 更新 ES
+
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 批量删除用户（仅管理员）
+     * @param deleteRequestList 删除请求列表
+     * @return 是否删除成功
+     */
+    @PostMapping("/delete/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> deleteBatchUser(@RequestBody List<DeleteRequest> deleteRequestList) {
+        if (CollectionUtils.isEmpty(deleteRequestList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        // 获取要删除的用户 id 列表
+        List<Long> idList = deleteRequestList.stream()
+                .map(DeleteRequest::getId)
+                .collect(Collectors.toList());
+        boolean result = userService.removeByIds(idList);
+
+        //TODO 从 ES 删除
+
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 添加用户签到记录
+     * @param request HTTP请求
+     * @return 是否签到成功
+     */
+    @PostMapping("/add/sign_in")
+    public BaseResponse<Boolean> addUserSignIn(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        boolean result = userService.addUserSignIn(loginUser.getId());
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 获取用户签到记录
+     * @param year 年份（为空表示当前年份）
+     * @param request HTTP请求
+     * @return 用户签到记录
+     */
+    @GetMapping("/get/sign_in/record")
+    public BaseResponse<List<Integer>> getUserSignInRecord(Integer year, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        List<Integer> userSignInRecord = userService.getUserSignInRecord(loginUser.getId(), year);
+        return ResultUtils.success(userSignInRecord);
+    }
 
 
-
+    /**
+     * 获取防刷验证码
+     * @return 验证码
+     */
+    @GetMapping("/get/captcha")
+    public BaseResponse<Map<String, String>> getCaptcha() {
+        Map<String, String> captchaData = userService.getCaptcha();
+        return ResultUtils.success(captchaData);
+    }
 
 
 }
