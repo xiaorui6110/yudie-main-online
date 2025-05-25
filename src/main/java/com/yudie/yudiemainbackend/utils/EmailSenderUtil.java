@@ -65,7 +65,7 @@ public class EmailSenderUtil {
             message.setFrom(new InternetAddress(from));
             message.addRecipient(Message.RecipientType.TO, new InternetAddress(toEmail));
             // 编码邮件主题
-            String encodedSubject = MimeUtility.encodeText("雨蝶邮箱验证码", "UTF-8", "B");
+            String encodedSubject = MimeUtility.encodeText("语蝶邮箱验证码", "UTF-8", "B");
             message.setSubject(encodedSubject, "UTF-8");
             String htmlContent = readHTMLFromFile();
             htmlContent = htmlContent.replace(":data=\"verify\"", ":data=\"" + generatedCode + "\"").replace("000000", generatedCode);
@@ -121,7 +121,7 @@ public class EmailSenderUtil {
             message.setFrom(new InternetAddress(from));
             message.addRecipient(Message.RecipientType.TO, new InternetAddress(toEmail));
             // 编码邮件主题
-            String encodedSubject = MimeUtility.encodeText("雨蝶内容审核通知", "UTF-8", "B");
+            String encodedSubject = MimeUtility.encodeText("语蝶内容审核通知", "UTF-8", "B");
             message.setSubject(encodedSubject, "UTF-8");
             // 设置邮件内容
             message.setContent(htmlContent, "text/html;charset=UTF-8");

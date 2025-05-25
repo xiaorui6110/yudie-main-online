@@ -30,18 +30,17 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * @description: 用户接口类
+ * @description: 用户实现类接口
  * @author: siri
  * @date: 2025-05-21 20:13
  **/
+@Slf4j
 @RestController
 @RequestMapping("/user")
-@Slf4j
 public class UserController {
 
     @Resource
     private UserService userService;
-
 
     /**
      * 用户注册
