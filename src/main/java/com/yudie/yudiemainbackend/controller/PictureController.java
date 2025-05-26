@@ -1,7 +1,15 @@
 package com.yudie.yudiemainbackend.controller;
 
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yudie.yudiemainbackend.annotation.AuthCheck;
+import com.yudie.yudiemainbackend.api.aliyunai.AliYunAiApi;
+import com.yudie.yudiemainbackend.api.aliyunai.model.CreateOutPaintingTaskResponse;
+import com.yudie.yudiemainbackend.api.aliyunai.model.GetOutPaintingTaskResponse;
+import com.yudie.yudiemainbackend.api.imagesearch.baidu.ImageSearchApiFacade;
+import com.yudie.yudiemainbackend.api.imagesearch.baidu.model.ImageSearchResult;
+import com.yudie.yudiemainbackend.api.imagesearch.so.SoImageSearchApiFacade;
+import com.yudie.yudiemainbackend.api.imagesearch.so.model.SoImageSearchResult;
 import com.yudie.yudiemainbackend.common.BaseResponse;
 import com.yudie.yudiemainbackend.common.DeleteRequest;
 import com.yudie.yudiemainbackend.common.ResultUtils;
@@ -14,16 +22,21 @@ import com.yudie.yudiemainbackend.manager.CrawlerManager;
 import com.yudie.yudiemainbackend.model.dto.picture.*;
 import com.yudie.yudiemainbackend.model.entity.Picture;
 import com.yudie.yudiemainbackend.model.entity.User;
+import com.yudie.yudiemainbackend.model.vo.PictureTagCategory;
 import com.yudie.yudiemainbackend.model.vo.PictureVO;
+import com.yudie.yudiemainbackend.service.CategoryService;
 import com.yudie.yudiemainbackend.service.PictureService;
+import com.yudie.yudiemainbackend.service.TagService;
 import com.yudie.yudiemainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -44,6 +57,15 @@ public class PictureController {
 
     @Resource
     private CrawlerManager crawlerManager;
+
+    @Resource
+    private AliYunAiApi aliYunAiApi;
+
+    @Resource
+    private TagService tagService;
+
+    @Resource
+    private CategoryService categoryService;
 
     /**
      * 上传图片（可重新上传）
@@ -290,6 +312,62 @@ public class PictureController {
         return ResultUtils.success(true);
     }
 
+    /**
+     * 创建 AI 扩图任务
+     * @param createPictureOutPaintingTaskRequest 创建扩图任务请求
+     * @param request 请求
+     * @return 响应
+     */
+    @PostMapping("/out_painting/create_task")
+    public BaseResponse<CreateOutPaintingTaskResponse> createPictureOutPaintingTask(
+            @RequestBody CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest,
+            HttpServletRequest request) {
+        if (createPictureOutPaintingTaskRequest == null || createPictureOutPaintingTaskRequest.getPictureId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        CreateOutPaintingTaskResponse response = pictureService.createPictureOutPaintingTask(createPictureOutPaintingTaskRequest, loginUser);
+        return ResultUtils.success(response);
+    }
+
+    /**
+     * 查询 AI 扩图任务
+     * @param taskId 任务ID
+     * @return 任务
+     */
+    @GetMapping("/out_painting/get_task")
+    public BaseResponse<GetOutPaintingTaskResponse> getPictureOutPaintingTask(String taskId) {
+        ThrowUtils.throwIf(StrUtil.isBlank(taskId), ErrorCode.PARAMS_ERROR);
+        GetOutPaintingTaskResponse task = aliYunAiApi.getOutPaintingTask(taskId);
+        return ResultUtils.success(task);
+    }
+
+    /**
+     * 以图搜图
+     * @param searchPictureByPictureRequest 以图搜图请求
+     * @return 图片列表
+     */
+    @PostMapping("/search/picture")
+    public BaseResponse<List<SoImageSearchResult>> searchPictureByPicture(@RequestBody SearchPictureByPictureRequest searchPictureByPictureRequest) {
+        ThrowUtils.throwIf(searchPictureByPictureRequest == null, ErrorCode.PARAMS_ERROR);
+        Long pictureId = searchPictureByPictureRequest.getPictureId();
+        ThrowUtils.throwIf(pictureId == null || pictureId <= 0, ErrorCode.PARAMS_ERROR);
+        Picture picture = pictureService.getById(pictureId);
+        ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR);
+        List<SoImageSearchResult> resultList = new ArrayList<>();
+        // start 是控制查询多少页
+        int start = 0;
+        final int MAX_PAGE_SIZE = 50;
+        while (resultList.size() <= MAX_PAGE_SIZE) {
+            List<SoImageSearchResult> tempList = SoImageSearchApiFacade.searchImage(picture.getUrl(), start);
+            if (tempList.isEmpty()) {
+                break;
+            }
+            resultList.addAll(tempList);
+            start += tempList.size();
+        }
+        return ResultUtils.success(resultList);
+    }
 
     /**
      * 获取Top100图片列表(带缓存)
@@ -331,6 +409,18 @@ public class PictureController {
         return ResultUtils.success(pictureVO);
     }
 
-
+    /**
+     * 获取图片标签分类
+     * @return 图片标签分类
+     */
+    @GetMapping("/tag_category")
+    public BaseResponse<PictureTagCategory> listPictureTagCategory() {
+        PictureTagCategory pictureTagCategory = new PictureTagCategory();
+        List<String> tagList = tagService.listTag();
+        List<String> categoryList = categoryService.listCategory();
+        pictureTagCategory.setTagList(tagList);
+        pictureTagCategory.setCategoryList(categoryList);
+        return ResultUtils.success(pictureTagCategory);
+    }
 
 }

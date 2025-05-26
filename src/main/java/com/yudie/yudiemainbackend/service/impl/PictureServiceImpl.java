@@ -10,6 +10,9 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yudie.yudiemainbackend.annotation.AuthCheck;
+import com.yudie.yudiemainbackend.api.aliyunai.AliYunAiApi;
+import com.yudie.yudiemainbackend.api.aliyunai.model.CreateOutPaintingTaskRequest;
+import com.yudie.yudiemainbackend.api.aliyunai.model.CreateOutPaintingTaskResponse;
 import com.yudie.yudiemainbackend.constant.CrawlerConstant;
 import com.yudie.yudiemainbackend.constant.RedisConstant;
 import com.yudie.yudiemainbackend.exception.BusinessException;
@@ -40,6 +43,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -88,6 +92,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private AliYunAiApi aliYunAiApi;
 
     /**
      * 校验图片
@@ -183,9 +190,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         picture.setCategory(pictureUploadRequest.getCategoryName());
         picture.setTags(pictureUploadRequest.getTagName());
         picture.setUserId(loginUser.getId());
-
-        // TODO 补充审核参数
-
+        // 补充审核参数
+        this.fillReviewParams(picture, loginUser);
         // 6. 入库
         // 如果 pictureId 不为空，表示更新，否则是新增
         if (pictureId != null) {
@@ -218,7 +224,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         if (picture == null) {
             return null;
         }
-        // TODO 增加浏览量
+        // 增加浏览量
+        incrementViewCount(picture.getId(), request);
         incrementViewCount(picture.getId(), request);
         // 对象转封装类
         PictureVO pictureVO = PictureVO.objToVo(picture);
@@ -231,7 +238,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             UserVO userVO = userService.getUserVO(user);
             pictureVO.setUser(userVO);
         }
-        // TODO 设置点赞状态 - 使用新的通用点赞表
+        // TODO 设置点赞状态 - 使用新的通用点赞表 likeRecordService shareRecordService
 
         return pictureVO;
     }
@@ -286,14 +293,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         if (picture == null) {
             return null;
         }
-
-        // TODO 增加浏览量
-
+        // 增加浏览量
+        incrementViewCount(picture.getId(), null);
         // 对象转封装类
         PictureVO pictureVO = PictureVO.objToVo(picture);
-
-        // TODO 设置实时浏览量
-
+        // 设置实时浏览量
+        pictureVO.setViewCount(getViewCount(picture.getId()));
         // 关联查询用户信息
         Long userId = picture.getUserId();
         if (userId != null && userId > 0) {
@@ -302,7 +307,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             pictureVO.setUser(userVO);
         }
 
-        // TODO 设置点赞状态 - 使用新的通用点赞表
+        // TODO 设置点赞状态 - 使用新的通用点赞表 likeRecordService shareRecordService
 
         return pictureVO;
     }
@@ -1208,6 +1213,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     /**
      * 处理空间图片查询
+     * @param spaceId 空间ID
+     * @param loginUser 用户
+     * @param queryWrapper 查询条件
      */
     private void handleSpaceQuery(Long spaceId, User loginUser, QueryWrapper<Picture> queryWrapper) {
 
@@ -1258,4 +1266,28 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 .isNull("spaceId");
     }
 
+
+    /**
+     * 创建扩图任务
+     * @param createPictureOutPaintingTaskRequest 创建扩图任务请求
+     * @param loginUser 用户
+     * @return 扩图任务
+     */
+    @Override
+    public CreateOutPaintingTaskResponse createPictureOutPaintingTask(
+            CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, User loginUser) {
+        // 获取图片信息
+        Long pictureId = createPictureOutPaintingTaskRequest.getPictureId();
+        Picture picture = Optional.ofNullable(this.getById(pictureId))
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图片不存在"));
+        // 创建扩图任务
+        CreateOutPaintingTaskRequest createOutPaintingTaskRequest = new CreateOutPaintingTaskRequest();
+        CreateOutPaintingTaskRequest.Input input = new CreateOutPaintingTaskRequest.Input();
+        input.setImageUrl(picture.getUrl());
+        createOutPaintingTaskRequest.setInput(input);
+        createOutPaintingTaskRequest.setParameters(createPictureOutPaintingTaskRequest.getParameters());
+        // 创建任务
+        return aliYunAiApi.createOutPaintingTask(createOutPaintingTaskRequest);
+
+    }
 }

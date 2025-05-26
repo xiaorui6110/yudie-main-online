@@ -177,9 +177,9 @@ public interface UserService extends IService<User> {
 
     /**
      * 删除用户数据
-     * @param id 目标用户 id
+     * @param userId 目标用户 id
      */
-    void asyncDeleteUserData(Long id);
+    void asyncDeleteUserData(Long userId);
 
     /**
      * 添加用户签到记录

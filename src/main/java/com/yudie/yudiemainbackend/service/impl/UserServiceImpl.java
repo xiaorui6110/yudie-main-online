@@ -13,24 +13,31 @@ import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yudie.yudiemainbackend.constant.CommonValue;
+import com.yudie.yudiemainbackend.constant.CrawlerConstant;
 import com.yudie.yudiemainbackend.constant.RedisConstant;
 import com.yudie.yudiemainbackend.constant.UserConstant;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
+import com.yudie.yudiemainbackend.manager.CrawlerManager;
+import com.yudie.yudiemainbackend.manager.FileManager;
 import com.yudie.yudiemainbackend.mapper.UserSignInRecordMapper;
+import com.yudie.yudiemainbackend.model.dto.file.UploadPictureResult;
 import com.yudie.yudiemainbackend.model.dto.user.UserModifyPassWord;
 import com.yudie.yudiemainbackend.model.dto.user.UserQueryRequest;
+import com.yudie.yudiemainbackend.model.entity.Picture;
 import com.yudie.yudiemainbackend.model.entity.User;
 import com.yudie.yudiemainbackend.model.entity.UserSignInRecord;
 import com.yudie.yudiemainbackend.model.enums.UserRoleEnum;
 import com.yudie.yudiemainbackend.model.vo.LoginUserVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
+import com.yudie.yudiemainbackend.service.PictureService;
 import com.yudie.yudiemainbackend.service.UserService;
 import com.yudie.yudiemainbackend.mapper.UserMapper;
 import com.yudie.yudiemainbackend.utils.EmailSenderUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBitSet;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -39,6 +46,7 @@ import org.redisson.api.RedissonClient;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
+import java.io.Serializable;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -77,6 +85,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Resource
     private UserSignInRecordMapper userSignInRecordMapper;
+
+    @Lazy
+    @Resource
+    private CrawlerManager crawlerManager;
+
+    @Resource
+    private FileManager fileManager;
+
+    @Lazy
+    @Resource
+    private PictureService pictureService;
 
     /**
      * 用户注册
@@ -175,9 +194,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (StrUtil.hasBlank(userEmail, type)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数为空");
         }
-
-        // TODO  检测高频操作 crawlerManager ，待图片模块完成
-
+        // 检测高频操作
+        crawlerManager.detectFrequentRequest(request);
         // 检查邮箱格式
         if (!userEmail.matches("^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+$")) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱格式错误");
@@ -475,10 +493,33 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public String updateUserAvatar(MultipartFile multipartFile, Long id, HttpServletRequest request) {
+        // 判断用户是否存在
+        User user = userMapper.selectById(id);
+        if(user == null){
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+        }
+        // 判断用户是否登录
+        User loginUser = getLoginUser(request);
+        if(loginUser == null || !loginUser.getId().equals(id)){
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
+        }
+        // 判断文件是否为空
+        if(multipartFile == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件不能为空");
+        }
+        // 判断文件类型
+        // 上传图片，得到图片信息
+        // 按照用户 id 划分目录
+        String uploadPathPrefix = String.format("avatars/%s", loginUser.getId());
+        UploadPictureResult uploadPictureResult = fileManager.uploadPicture(multipartFile, uploadPathPrefix);
+        // 更新用户头像
+        user.setUserAvatar(uploadPictureResult.getUrl());
+        // 更新MySQL
+        userMapper.updateById(user);
 
-        // TODO 修改用户头像，待图片模块完成
+        // TODO 更新ES
 
-        return null;
+        return uploadPictureResult.getUrl();
     }
 
     /**
@@ -632,28 +673,79 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
         }
         // 4.检查当前状态是否需要变更
-
+        boolean isBanned = CrawlerConstant.BAN_ROLE.equals(targetUser.getUserRole());
         // 5.变更用户状态
+        if (isUnban == isBanned) {
+            User updateUser = new User();
+            updateUser.setId(userId);
+            updateUser.setUserRole(isUnban ? UserConstant.DEFAULT_ROLE : CrawlerConstant.BAN_ROLE);
+            updateUser.setUpdateTime(new Date());
+            boolean result = this.updateById(updateUser);
+            if (result) {
+                // 6. 记录操作日志
+                log.info("管理员[{}]{}用户[{}]",
+                        admin.getUserAccount(),
+                        isUnban ? "解封" : "封禁",
+                        targetUser.getUserAccount());
 
-        // 6.记录操作日志
+                // 7. 处理Redis缓存
+                String banKey = String.format("user:ban:%d", userId);
+                if (isUnban) {
+                    stringRedisTemplate.delete(banKey);
+                } else {
+                    stringRedisTemplate.opsForValue().set(banKey, "1");
+                }
 
-        // 7.处理 Redis 缓存
+                // TODO 8. 更新ES中的用户信息
 
-        // TODO 8.更新 ES 中的用户信息
+            }
 
-        // 9.返回变更结果
-        return false;
+            return result;
+        } else {
+            // 状态已经是目标状态
+            String operation = isUnban ? "解封" : "封禁";
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,
+                    String.format("该用户当前%s不需要%s", isUnban ? "未被封禁" : "已被封禁", operation));
+        }
     }
 
     /**
      * 异步删除用户数据
-     * @param id 目标用户 id
+     * @param userId 目标用户 id
      */
     @Override
     @Async("asyncExecutor")
-    public void asyncDeleteUserData(Long id) {
+    public void asyncDeleteUserData(Long userId) {
+        try {
+            // 1. 删除用户发布的图片
+            QueryWrapper<Picture> pictureQueryWrapper = new QueryWrapper<>();
+            pictureQueryWrapper.eq("userId", userId);
+            List<Picture> pictureList = pictureService.list(pictureQueryWrapper);
+            if (!pictureList.isEmpty()) {
+                // 删除数据库记录
+                pictureService.remove(pictureQueryWrapper);
 
-        // TODO 需完成图片模块
+                // TODO 删除ES中的图片记录
+
+            }
+
+            // TODO 2. 删除用户发布的帖子
+
+
+            // 3. 删除用户数据
+            this.removeById(userId);
+
+            // TODO 删除ES中的用户记录
+
+            // 4. 清理相关缓存
+            String userKey = String.format("user:ban:%d", userId);
+            stringRedisTemplate.delete(userKey);
+
+            log.info("用户相关数据删除完成, userId={}", userId);
+        } catch (Exception e) {
+            log.error("删除用户相关数据失败, userId={}", userId, e);
+            // 这里不抛出异常，因为是异步操作，主流程已经完成
+        }
 
     }
 
@@ -702,7 +794,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (year != currentYear) {
             // 1.如果不是当前年份，则直接从数据库查询
             QueryWrapper<UserSignInRecord> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("user_id", userId)
+            queryWrapper.eq("userId", userId)
                     .eq("year", year);
             UserSignInRecord record  = userSignInRecordMapper.selectOne(queryWrapper);
             if (record != null && record.getSignInData()!= null) {
@@ -758,6 +850,53 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         return signInDays;
     }
+
+    /**
+     * 根据主键ID从MySQL删除
+     * @param id 主键ID
+     * @return 结果
+     */
+    @Override
+    public boolean removeById(Serializable id) {
+        // 从MySQL删除
+        boolean result = super.removeById(id);
+
+            // TODO 从ES删除
+
+        return result;
+    }
+
+    /**
+     * 从MySQL批量删除
+     * @param idList 主键ID或实体列表
+     * @return 结果
+     */
+    @Override
+    public boolean removeByIds(Collection<?> idList) {
+        // 从 MySQL 批量删除
+        boolean result = super.removeByIds(idList);
+
+            // TODO 从ES批量删除
+
+        return result;
+    }
+
+    /**
+     * 更新 MySQL
+     * @param entity 实体对象
+     * @return 结果
+     */
+    @Override
+    public boolean updateById(User entity) {
+        // 更新 MySQL
+        boolean result = super.updateById(entity);
+
+        // TODO 转换为ES实体
+
+        return result;
+    }
+
+
 
 
 }

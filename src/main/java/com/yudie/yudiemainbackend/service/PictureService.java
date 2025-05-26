@@ -2,6 +2,7 @@ package com.yudie.yudiemainbackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yudie.yudiemainbackend.api.aliyunai.model.CreateOutPaintingTaskResponse;
 import com.yudie.yudiemainbackend.model.dto.picture.*;
 import com.yudie.yudiemainbackend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
@@ -130,7 +131,15 @@ public interface PictureService extends IService<Picture> {
     void editPictureByBatch(PictureEditByBatchRequest pictureEditByBatchRequest, User loginUser);
 
 
-    // TODO 创建扩图任务 createPictureOutPaintingTask
+    /**
+     * 创建扩图任务
+     *
+     * @param createPictureOutPaintingTaskRequest 创建扩图任务请求
+     * @param loginUser 用户
+     */
+    CreateOutPaintingTaskResponse createPictureOutPaintingTask(
+            CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, User loginUser);
+
 
     /**
      * 爬虫检测

@@ -69,7 +69,7 @@ public class UserController {
      * @param request HTTP请求
      * @return 发送结果
      */
-    @PostMapping("/send_email_code")
+    @PostMapping("/send_emailCode")
     public BaseResponse<String> sendEmailCode(@RequestBody EmailCodeRequest emailCodeRequest, HttpServletRequest request) {
         if(emailCodeRequest == null || StrUtil.hasBlank(emailCodeRequest.getUserEmail(), emailCodeRequest.getType())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -121,6 +121,23 @@ public class UserController {
         ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
         boolean result = userService.userLogout(request);
         return ResultUtils.success(result);
+    }
+
+
+    /**
+     * 用户注销
+     * @param userDestroyRequest 用户注销请求
+     * @param request HTTP请求
+     * @return 是否注销成功
+     */
+    @PostMapping("/destroy")
+    public BaseResponse<Boolean> userDestroy(@RequestBody DeleteRequest userDestroyRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(userDestroyRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        ThrowUtils.throwIf(!loginUser.getId().equals(userDestroyRequest.getId()),
+                ErrorCode.NOT_AUTH_ERROR, "只能注销自己的账号");
+        userService.asyncDeleteUserData(userDestroyRequest.getId());
+        return ResultUtils.success(true);
     }
 
 
@@ -206,6 +223,20 @@ public class UserController {
 
         // TODO 从 ES 删除
 
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 更新用户头像
+     * @param multipartFile 文件
+     * @param id 用户 id
+     * @param request HTTP请求
+     * @return 头像地址
+     */
+    @PostMapping("/update/avatar")
+    public BaseResponse<String> updateUserAvatar(MultipartFile multipartFile,Long id, HttpServletRequest request) {
+        ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        String result = userService.updateUserAvatar(multipartFile,id, request);
         return ResultUtils.success(result);
     }
 
@@ -345,6 +376,24 @@ public class UserController {
         Map<String, String> captchaData = userService.getCaptcha();
         return ResultUtils.success(captchaData);
     }
+
+    /**
+     * 用户封禁/解禁（仅管理员）
+     * @param request 用户封禁/解禁请求
+     * @param httpRequest HTTP请求
+     * @return 是否封禁/解禁成功
+     */
+    @PostMapping("/ban")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> banOrUnbanUser(@RequestBody UserUnbanRequest request, HttpServletRequest httpRequest) {
+        if (request == null || request.getUserId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User admin = userService.getLoginUser(httpRequest);
+        boolean result = userService.banOrUnbanUser(request.getUserId(), request.getIsUnban(), admin);
+        return ResultUtils.success(result);
+    }
+
 
 
 }
