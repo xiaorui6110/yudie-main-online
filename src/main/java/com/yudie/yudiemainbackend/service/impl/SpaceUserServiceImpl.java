@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 public class SpaceUserServiceImpl extends ServiceImpl<SpaceUserMapper, SpaceUser>
     implements SpaceUserService{
 
+
+
 }
 
 

@@ -26,6 +26,7 @@ import com.yudie.yudiemainbackend.manager.upload.UrlPictureUpload;
 import com.yudie.yudiemainbackend.model.dto.file.UploadPictureResult;
 import com.yudie.yudiemainbackend.model.dto.picture.*;
 import com.yudie.yudiemainbackend.model.entity.Picture;
+import com.yudie.yudiemainbackend.model.entity.Space;
 import com.yudie.yudiemainbackend.model.entity.User;
 import com.yudie.yudiemainbackend.model.enums.OperationEnum;
 import com.yudie.yudiemainbackend.model.enums.PictureReviewStatusEnum;
@@ -33,6 +34,7 @@ import com.yudie.yudiemainbackend.model.vo.PictureVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
 import com.yudie.yudiemainbackend.service.PictureService;
 import com.yudie.yudiemainbackend.mapper.PictureMapper;
+import com.yudie.yudiemainbackend.service.SpaceService;
 import com.yudie.yudiemainbackend.service.UserService;
 import com.yudie.yudiemainbackend.utils.ColorSimilarUtils;
 import com.yudie.yudiemainbackend.utils.ColorTransformUtils;
@@ -96,6 +98,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     @Resource
     private AliYunAiApi aliYunAiApi;
 
+    @Resource
+    private SpaceService spaceService;
+
     /**
      * 校验图片
      * @param picture 图片
@@ -128,12 +133,19 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
         ThrowUtils.throwIf(ObjUtil.isNull(inputSource), ErrorCode.PARAMS_ERROR);
         ThrowUtils.throwIf(ObjUtil.isNull(pictureUploadRequest), ErrorCode.PARAMS_ERROR);
-
-        // TODO 2. 校验空间 spaceService
-
-        Long spaceId = pictureUploadRequest
-                .getSpaceId();
-
+        // 2. 校验空间是否存在
+        Long spaceId = pictureUploadRequest.getSpaceId();
+        if (spaceId != null) {
+            Space space = spaceService.getById(spaceId);
+            ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
+            // 校验额度
+            if (space.getTotalCount() >= space.getMaxCount()) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "空间条数不足");
+            }
+            if (space.getTotalSize() >= space.getMaxSize()) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "空间大小不足");
+            }
+        }
         // 3. 判断是新增还是更新图片
         Long pictureId = pictureUploadRequest.getId();
         // 如果是更新图片，先查询图片信息
@@ -204,9 +216,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         transactionTemplate.execute(status -> {
             boolean result = this.saveOrUpdate(picture);
             ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图片上传失败，数据库操作失败");
-
-            // TODO 更新空间的使用额度 ，待空间模块完成
-
+            // 更新空间的使用额度
+            if (finalSpaceId != null) {
+                // 更新空间的使用额度
+                boolean update = spaceService.lambdaUpdate()
+                        .eq(Space::getId, finalSpaceId)
+                        .setSql("totalSize = totalSize + " + picture.getPicSize())
+                        .setSql("totalCount = totalCount + 1")
+                        .update();
+                ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
+            }
             return picture;
         });
         // 7. 返回图片包装类
@@ -666,8 +685,15 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 // 操作数据库
                 boolean result = this.removeById(pictureId);
                 ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
-
-                // TODO 更新空间的使用额度，释放额度
+                // 更新空间的使用额度，释放额度
+                if(finalSpaceId != null){
+                    boolean update = spaceService.lambdaUpdate()
+                            .eq(Space::getId, oldPicture.getSpaceId())
+                            .setSql("totalSize = totalSize - " + oldPicture.getPicSize())
+                            .setSql("totalCount = totalCount - 1")
+                            .update();
+                    ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
+                }
 
                 // TODO 从 ES 删除
 
@@ -693,9 +719,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 1. 校验参数
         ThrowUtils.throwIf(spaceId == null || StrUtil.isBlank(picColor), ErrorCode.PARAMS_ERROR);
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
-
-        // 2. TODO 校验空间权限 spaceService
-
+        // 2. 校验空间权限
+        Space space = spaceService.getById(spaceId);
+        ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
+        if (!space.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NOT_AUTH_ERROR, "没有空间访问权限");
+        }
         // 3. 查询该空间下的所有图片（必须要有主色调）
         List<Picture> pictureList = this.lambdaQuery()
                 .eq(Picture::getSpaceId, spaceId)
@@ -789,9 +818,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         ThrowUtils.throwIf(CollUtil.isEmpty(pictureIdList), ErrorCode.PARAMS_ERROR);
         ThrowUtils.throwIf(spaceId == null, ErrorCode.PARAMS_ERROR);
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
-
-        // 2. TODO 校验空间权限 spaceService
-
+        // 2. 校验空间权限
+        Space space = spaceService.getById(spaceId);
+        ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
+        if (!space.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NOT_AUTH_ERROR, "没有空间访问权限");
+        }
         // 3. 查询指定图片（仅选择需要的字段）
         List<Picture> pictureList = this.lambdaQuery()
                 .select(Picture::getId, Picture::getSpaceId)
@@ -1223,7 +1255,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
         // TODO 检查是否是空间所有者
 
-        // TODO 检查查看权限
+        // TODO 检查查看权限 StpKit
 
         queryWrapper.eq("spaceId", spaceId);
     }

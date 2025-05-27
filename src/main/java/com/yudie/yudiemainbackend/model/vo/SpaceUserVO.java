@@ -1,6 +1,8 @@
 package com.yudie.yudiemainbackend.model.vo;
 
+import com.yudie.yudiemainbackend.model.entity.SpaceUser;
 import lombok.Data;
+import org.springframework.beans.BeanUtils;
 
 import java.io.Serializable;
 import java.util.Date;
@@ -55,4 +57,33 @@ public class SpaceUserVO implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * 封装类转对象
+     *
+     * @param spaceUserVO 空间成员封装类
+     * @return 空间成员对象
+     */
+    public static SpaceUser voToObj(SpaceUserVO spaceUserVO) {
+        if (spaceUserVO == null) {
+            return null;
+        }
+        SpaceUser spaceUser = new SpaceUser();
+        BeanUtils.copyProperties(spaceUserVO, spaceUser);
+        return spaceUser;
+    }
+
+    /**
+     * 对象转封装类
+     *
+     * @param spaceUser 空间成员对象
+     * @return 空间成员封装类
+     */
+    public static SpaceUserVO objToVo(SpaceUser spaceUser) {
+        if (spaceUser == null) {
+            return null;
+        }
+        SpaceUserVO spaceUserVO = new SpaceUserVO();
+        BeanUtils.copyProperties(spaceUser, spaceUserVO);
+        return spaceUserVO;
+    }
 }

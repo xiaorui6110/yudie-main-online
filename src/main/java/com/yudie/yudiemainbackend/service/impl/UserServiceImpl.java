@@ -61,7 +61,8 @@ import java.util.stream.Collectors;
 */
 @Service
 @Slf4j
-public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService{
+public class UserServiceImpl extends ServiceImpl<UserMapper, User>
+        implements UserService{
 
     private final int MIN_USERPASSWORD_LENGTH = 6;
 
@@ -851,6 +852,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return signInDays;
     }
 
+
+
     /**
      * 根据主键ID从MySQL删除
      * @param id 主键ID
@@ -895,8 +898,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         return result;
     }
-
-
 
 
 }

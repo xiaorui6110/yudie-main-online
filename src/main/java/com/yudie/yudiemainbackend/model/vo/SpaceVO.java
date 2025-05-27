@@ -1,6 +1,8 @@
 package com.yudie.yudiemainbackend.model.vo;
 
+import com.yudie.yudiemainbackend.model.entity.Space;
 import lombok.Data;
+import org.springframework.beans.BeanUtils;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -90,5 +92,35 @@ public class SpaceVO implements Serializable {
     private Long memberCount;
 
     private static final long serialVersionUID = 1L;
+
+    /**
+     * 封装类转对象
+     *
+     * @param spaceVO 空间VO
+     * @return 空间
+     */
+    public static Space voToObj(SpaceVO spaceVO) {
+        if (spaceVO == null) {
+            return null;
+        }
+        Space space = new Space();
+        BeanUtils.copyProperties(spaceVO, space);
+        return space;
+    }
+
+    /**
+     * 对象转封装类
+     *
+     * @param space 空间
+     * @return 空间VO
+     */
+    public static SpaceVO objToVo(Space space) {
+        if (space == null) {
+            return null;
+        }
+        SpaceVO spaceVO = new SpaceVO();
+        BeanUtils.copyProperties(space, spaceVO);
+        return spaceVO;
+    }
 
 }
