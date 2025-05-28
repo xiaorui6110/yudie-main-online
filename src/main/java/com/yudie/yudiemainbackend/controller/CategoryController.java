@@ -27,7 +27,6 @@ public class CategoryController {
     @Resource
     private CategoryService categoryService;
 
-
     /**
      * 分页获取分类列表（管理员）
      * @param pageRequest 分页请求参数

@@ -64,20 +64,19 @@ public class UserController {
     }
 
     /**
-     * 发送邮箱验证码
+     * 获取邮箱验证码（发送）
      * @param emailCodeRequest 验证码请求
      * @param request HTTP请求
      * @return 发送结果
      */
-    @PostMapping("/send_emailCode")
-    public BaseResponse<String> sendEmailCode(@RequestBody EmailCodeRequest emailCodeRequest, HttpServletRequest request) {
+    @PostMapping("/get_emailcode")
+    public BaseResponse<String> getEmailCode(@RequestBody EmailCodeRequest emailCodeRequest, HttpServletRequest request) {
         if(emailCodeRequest == null || StrUtil.hasBlank(emailCodeRequest.getUserEmail(), emailCodeRequest.getType())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         userService.sendEmailCode(emailCodeRequest.getUserEmail(), emailCodeRequest.getType(), request);
         return ResultUtils.success("验证码发送成功");
     }
-
 
     /**
      * 用户登录
@@ -123,7 +122,6 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
-
     /**
      * 用户注销
      * @param userDestroyRequest 用户注销请求
@@ -139,7 +137,6 @@ public class UserController {
         userService.asyncDeleteUserData(userDestroyRequest.getId());
         return ResultUtils.success(true);
     }
-
 
     /**
      * 添加用户（仅管理员）
@@ -161,7 +158,6 @@ public class UserController {
         return ResultUtils.success(user.getId());
     }
 
-
     /**
      * 根据 id 获取用户信息（仅管理员）
      * @param id 用户 id
@@ -175,7 +171,6 @@ public class UserController {
         ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR);
         return ResultUtils.success(user);
     }
-
 
     /**
      * 根据 id 获取用户包装信息
@@ -246,7 +241,7 @@ public class UserController {
      * @param request HTTP请求
      * @return 是否修改成功
      */
-    @PostMapping("/change/password")
+    @PostMapping("/changePassword")
     public BaseResponse<Boolean> changePassword(@RequestBody UserModifyPassWord userModifyPassWord, HttpServletRequest request) {
         ThrowUtils.throwIf(userModifyPassWord == null, ErrorCode.PARAMS_ERROR);
         boolean result = userService.changePassword(userModifyPassWord, request);
@@ -330,15 +325,32 @@ public class UserController {
         if (CollectionUtils.isEmpty(deleteRequestList)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        // 获取要删除的用户 id 列表
         List<Long> idList = deleteRequestList.stream()
                 .map(DeleteRequest::getId)
                 .collect(Collectors.toList());
         boolean result = userService.removeByIds(idList);
 
-        //TODO 从 ES 删除
+        //TODO 批量删除 ES 数据
 
         return ResultUtils.success(result);
+    }
+
+    /**
+     * 批量删除用户（仅管理员）
+     * @param deleteRequestList 删除请求列表
+     * @param request HTTP请求
+     * @return 是否删除成功
+     */
+    @PostMapping("/batchDelete")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> batchDeleteUser(@RequestBody List<Long> deleteRequestList, HttpServletRequest request) {
+        ThrowUtils.throwIf(deleteRequestList == null || deleteRequestList.isEmpty(), ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        List<User> pictureList = userService.listByIds(deleteRequestList);
+        ThrowUtils.throwIf(pictureList == null || pictureList.isEmpty(), ErrorCode.NOT_FOUND_ERROR);
+        boolean result = userService.removeByIds(deleteRequestList);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return ResultUtils.success(true);
     }
 
     /**
@@ -359,19 +371,18 @@ public class UserController {
      * @param request HTTP请求
      * @return 用户签到记录
      */
-    @GetMapping("/get/sign_in/record")
+    @GetMapping("/get/sign_in")
     public BaseResponse<List<Integer>> getUserSignInRecord(Integer year, HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         List<Integer> userSignInRecord = userService.getUserSignInRecord(loginUser.getId(), year);
         return ResultUtils.success(userSignInRecord);
     }
 
-
     /**
      * 获取防刷验证码
      * @return 验证码
      */
-    @GetMapping("/get/captcha")
+    @GetMapping("/getcode")
     public BaseResponse<Map<String, String>> getCaptcha() {
         Map<String, String> captchaData = userService.getCaptcha();
         return ResultUtils.success(captchaData);
@@ -393,7 +404,6 @@ public class UserController {
         boolean result = userService.banOrUnbanUser(request.getUserId(), request.getIsUnban(), admin);
         return ResultUtils.success(result);
     }
-
 
 
 }

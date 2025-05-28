@@ -21,6 +21,7 @@ import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
 import com.yudie.yudiemainbackend.manager.CrawlerManager;
 import com.yudie.yudiemainbackend.manager.FileManager;
+import com.yudie.yudiemainbackend.manager.auth.StpKit;
 import com.yudie.yudiemainbackend.mapper.UserSignInRecordMapper;
 import com.yudie.yudiemainbackend.model.dto.file.UploadPictureResult;
 import com.yudie.yudiemainbackend.model.dto.user.UserModifyPassWord;
@@ -269,7 +270,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"用户不存在或密码错误");
         }
         // 3.记录用户登录态
-        // TODO 先设置 Sa-Token 登录态，再在 Sa-Token Session 中存入完整的用户信息
+        // 先设置 Sa-Token 登录态，这样可以确保 Session 中有正确的权限信息
+        StpKit.SPACE.login(user.getId());
+        // 在 Sa-Token Session 中存入完整的用户信息
+        StpKit.SPACE.getSession().set(UserConstant.USER_LOGIN_STATE, user);
         request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, user);
         // 4.返回用户信息
         LoginUserVO loginUserVO = new LoginUserVO();
@@ -302,7 +306,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public User getLoginUser(HttpServletRequest request) {
         try {
-            // TODO 优先从 Sa-Token 中获取登录信息
+            // 优先从 Sa-Token 中获取登录信息
+            if (StpKit.SPACE.isLogin()) {
+                User user = (User) StpKit.SPACE.getSession().get(UserConstant.USER_LOGIN_STATE);
+                if (user != null) {
+                    return user;
+                }
+            }
             // 1.从 Session 中获取登录信息
             Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
             User currentUser = (User) userObj;
@@ -315,7 +325,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             if (currentUser == null) {
                 throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
             }
-            // TODO 更新 Sa-Token 中的用户信息
+            // 更新 Sa-Token 中的用户信息
+            StpKit.SPACE.login(userId);
+            StpKit.SPACE.getSession().set(UserConstant.USER_LOGIN_STATE, currentUser);
             // 3.返回用户信息
             return currentUser;
         } catch (Exception e) {
@@ -374,7 +386,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         // 2.移除 Spring Session 登录态
         request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
-        // TODO 移除 Sa-Token 登录态
+        // 移除 Sa-Token 登录态
+        if (StpKit.SPACE.isLogin()) {
+            StpKit.SPACE.logout();
+        }
         return true;
     }
 
@@ -852,7 +867,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return signInDays;
     }
 
-
+    // 重写 MyBatis Plus 的常用方法，主要是加上 ES 的同步操作
 
     /**
      * 根据主键ID从MySQL删除

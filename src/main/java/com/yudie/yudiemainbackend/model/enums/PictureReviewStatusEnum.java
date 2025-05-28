@@ -44,6 +44,4 @@ public enum PictureReviewStatusEnum {
         }
         return null;
     }
-
-
 }

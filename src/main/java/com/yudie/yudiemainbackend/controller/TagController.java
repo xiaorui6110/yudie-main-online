@@ -31,7 +31,6 @@ public class TagController {
     @Resource
     private TagService tagService;
 
-
     /**
      * 获取所有标签
      * @param pageRequest 分页请求
@@ -48,7 +47,6 @@ public class TagController {
         tagVOPage.setRecords(tagVOList);
         return ResultUtils.success(tagVOPage);
     }
-
 
     /**
      * 添加标签

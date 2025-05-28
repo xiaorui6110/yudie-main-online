@@ -1,5 +1,6 @@
 package com.yudie.yudiemainbackend.config;
 
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.ReadListener;
@@ -13,6 +14,7 @@ import java.io.*;
  * @author: siri
  * @date: 2025-05-25 15:01
  **/
+@Getter
 @Slf4j
 public class RequestWrapper extends HttpServletRequestWrapper {
 
@@ -62,10 +64,6 @@ public class RequestWrapper extends HttpServletRequestWrapper {
     @Override
     public BufferedReader getReader() throws IOException {
         return new BufferedReader(new InputStreamReader(this.getInputStream()));
-    }
-
-    public String getBody() {
-        return this.body;
     }
 
 }

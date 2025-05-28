@@ -10,6 +10,7 @@ import lombok.Getter;
  **/
 @Getter
 public enum OperationEnum {
+
     /**
      * 操作枚举
      */

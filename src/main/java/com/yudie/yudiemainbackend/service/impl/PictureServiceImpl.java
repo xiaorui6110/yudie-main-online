@@ -20,6 +20,9 @@ import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
 import com.yudie.yudiemainbackend.manager.CosManager;
 import com.yudie.yudiemainbackend.manager.CrawlerManager;
+import com.yudie.yudiemainbackend.manager.auth.SpaceUserAuthManager;
+import com.yudie.yudiemainbackend.manager.auth.StpKit;
+import com.yudie.yudiemainbackend.manager.auth.model.SpaceUserPermissionConstant;
 import com.yudie.yudiemainbackend.manager.upload.FilePictureUpload;
 import com.yudie.yudiemainbackend.manager.upload.PictureUploadTemplate;
 import com.yudie.yudiemainbackend.manager.upload.UrlPictureUpload;
@@ -100,6 +103,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private SpaceService spaceService;
+
+    @Resource
+    private SpaceUserAuthManager spaceUserAuthManager;
 
     /**
      * 校验图片
@@ -456,6 +462,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         BeanUtil.copyProperties(pictureReviewRequest, updatePicture);
         updatePicture.setReviewerId(loginUser.getId());
         updatePicture.setReviewTime(new Date());
+        updatePicture.setReviewMessage(reviewMessage);
         boolean result = this.updateById(updatePicture);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图片审核失败，数据库操作失败");
 
@@ -1121,12 +1128,21 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 查询数据库
         Picture picture = this.getById(id);
         ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR);
-
-        // TODO 空间权限校验 spaceService 获取权限列表 spaceUserAuthManager
-
+        // 空间权限校验
+        Long spaceId = picture.getSpaceId();
+        Space space = null;
+        if (spaceId != null) {
+            boolean hasPermission = StpKit.SPACE.hasPermission(SpaceUserPermissionConstant.PICTURE_VIEW);
+            ThrowUtils.throwIf(!hasPermission, ErrorCode.NOT_AUTH_ERROR);
+            space = spaceService.getById(spaceId);
+            ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
+        }
+        // 获取权限列表
+        User loginUser = userService.getLoginUser(request);
+        List<String> permissionList = spaceUserAuthManager.getPermissionList(space, loginUser);
         // 获取图片VO
         PictureVO pictureVO = this.getPictureVO(picture, request);
-
+        pictureVO.setPermissionList(permissionList);
         return pictureVO;
     }
 
@@ -1250,13 +1266,17 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
      * @param queryWrapper 查询条件
      */
     private void handleSpaceQuery(Long spaceId, User loginUser, QueryWrapper<Picture> queryWrapper) {
-
-        // TODO 检查空间是否存在 spaceService
-
-        // TODO 检查是否是空间所有者
-
-        // TODO 检查查看权限 StpKit
-
+        // 检查空间是否存在
+        Space space = spaceService.getById(spaceId);
+        ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
+        // 检查是否是空间所有者
+        if (loginUser != null && loginUser.getId().equals(space.getUserId())) {
+            queryWrapper.eq("spaceId", spaceId);
+            return; // 空间所有者直接放行
+        }
+        // 检查查看权限
+        boolean hasPermission = StpKit.SPACE.hasPermission(SpaceUserPermissionConstant.PICTURE_VIEW);
+        ThrowUtils.throwIf(!hasPermission, ErrorCode.NOT_AUTH_ERROR, "无权查看该空间的图片");
         queryWrapper.eq("spaceId", spaceId);
     }
 
@@ -1320,6 +1340,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         createOutPaintingTaskRequest.setParameters(createPictureOutPaintingTaskRequest.getParameters());
         // 创建任务
         return aliYunAiApi.createOutPaintingTask(createOutPaintingTaskRequest);
-
     }
+
 }
