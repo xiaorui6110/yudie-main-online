@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.yudie.yudiemainbackend.model.dto.space.analyze.*;
 import com.yudie.yudiemainbackend.model.entity.Space;
 import com.yudie.yudiemainbackend.model.entity.User;
-import com.yudie.yudiemainbackend.model.vo.analyze.*;
+import com.yudie.yudiemainbackend.model.vo.space.analyze.*;
 
 import java.util.List;
 

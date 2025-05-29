@@ -1,7 +1,8 @@
 -- 用户表
-CREATE TABLE IF NOT EXISTS user
+CREATE TABLE user
 (
-    id           bigint AUTO_INCREMENT COMMENT 'id'	PRIMARY KEY,
+    id           bigint AUTO_INCREMENT COMMENT 'id'
+        PRIMARY KEY,
     userAccount  varchar(256)                           NOT NULL COMMENT '用户账号',
     userPassword varchar(512)                           NOT NULL COMMENT '用户密码',
     userEmail    varchar(256)                           NULL COMMENT '用户邮箱',
@@ -184,21 +185,120 @@ CREATE INDEX idx_status
 CREATE INDEX idx_userId
     ON space_user (userId);
 
+-- 用户关注表
+CREATE TABLE userfollows
+(
+    followId            bigint AUTO_INCREMENT COMMENT '关注关系ID'
+        PRIMARY KEY,
+    followerId          bigint                             NOT NULL COMMENT '关注者的用户 ID',
+    followingId         bigint                             NOT NULL COMMENT '被关注者的用户 ID',
+    followStatus        tinyint                            NULL COMMENT '关注状态，0 表示取消关注，1 表示关注',
+    isMutual            tinyint                            NULL COMMENT '是否为双向关注，0 表示单向，1 表示双向',
+    lastInteractionTime datetime                           NULL COMMENT '最后交互时间',
+    createTime          datetime DEFAULT CURRENT_TIMESTAMP NULL COMMENT '关注关系创建时间，默认为当前时间',
+    editTime            datetime DEFAULT CURRENT_TIMESTAMP NULL COMMENT '关注关系编辑时间，默认为当前时间',
+    updateTime          datetime DEFAULT CURRENT_TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '关注关系更新时间，更新时自动更新',
+    isDelete            tinyint  DEFAULT 0                 NULL COMMENT '是否删除，0 表示未删除，1 表示已删除'
+)
+    COMMENT '用户关注表' COLLATE = utf8mb4_unicode_ci;
 
+CREATE INDEX idx_followStatus
+    ON userfollows (followStatus);
 
+CREATE INDEX idx_followerId
+    ON userfollows (followerId);
 
+CREATE INDEX idx_followingId
+    ON userfollows (followingId);
 
+CREATE INDEX idx_isDelete
+    ON userfollows (isDelete);
 
+-- 帖子表
+CREATE TABLE post
+(
+    id            bigint AUTO_INCREMENT COMMENT '帖子ID'
+        PRIMARY KEY,
+    userId        bigint                             NOT NULL COMMENT '发帖用户ID',
+    title         varchar(100)                       NOT NULL COMMENT '标题',
+    content       text                               NOT NULL COMMENT '内容',
+    category      varchar(50)                        NULL COMMENT '分类',
+    tags          varchar(255)                       NULL COMMENT '标签JSON数组',
+    viewCount     bigint   DEFAULT 0                 NULL COMMENT '浏览量',
+    likeCount     bigint   DEFAULT 0                 NULL COMMENT '点赞数',
+    commentCount  bigint   DEFAULT 0                 NULL COMMENT '评论数',
+    status        tinyint  DEFAULT 0                 NULL COMMENT '状态 0-待审核 1-已发布 2-已拒绝',
+    reviewMessage varchar(255)                       NULL COMMENT '审核信息',
+    createTime    datetime DEFAULT CURRENT_TIMESTAMP NULL COMMENT '创建时间',
+    updateTime    datetime DEFAULT CURRENT_TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    isDelete      tinyint  DEFAULT 0                 NULL COMMENT '是否删除',
+    shareCount    bigint   DEFAULT 0                 NULL COMMENT '分享数'
+)
+    COMMENT '论坛帖子表' COLLATE = utf8mb4_unicode_ci;
 
+CREATE INDEX idx_category
+    ON post (category);
 
+CREATE INDEX idx_shareCount
+    ON post (shareCount);
 
+CREATE INDEX idx_status
+    ON post (status);
 
+CREATE INDEX idx_userId
+    ON post (userId);
 
+-- 帖子附件表
+CREATE TABLE post_attachment
+(
+    id         bigint AUTO_INCREMENT COMMENT '附件ID'
+        PRIMARY KEY,
+    postId     bigint                             NOT NULL COMMENT '帖子ID',
+    type       tinyint                            NOT NULL COMMENT '类型 1-图片 2-文件',
+    url        varchar(255)                       NOT NULL COMMENT '资源URL',
+    name       varchar(100)                       NULL COMMENT '原始文件名',
+    size       bigint                             NULL COMMENT '文件大小(字节)',
+    position   int                                NULL COMMENT '在文章中的位置',
+    marker     varchar(50)                        NULL COMMENT '在文章中的标识符',
+    sort       int      DEFAULT 0                 NULL COMMENT '排序号',
+    createTime datetime DEFAULT CURRENT_TIMESTAMP NULL COMMENT '创建时间',
+    updateTime datetime DEFAULT CURRENT_TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    isDelete   tinyint  DEFAULT 0                 NULL COMMENT '是否删除'
+)
+    COMMENT '帖子附件表' COLLATE = utf8mb4_unicode_ci;
 
+CREATE INDEX idx_position
+    ON post_attachment (position);
 
+CREATE INDEX idx_postId
+    ON post_attachment (postId);
 
+CREATE INDEX idx_type
+    ON post_attachment (type);
 
+-- 评论表
+CREATE TABLE comments
+(
+    commentId       bigint AUTO_INCREMENT COMMENT '评论ID'
+        PRIMARY KEY,
+    userId          bigint                               NOT NULL COMMENT '评论用户ID',
+    targetId        bigint                               NOT NULL COMMENT '评论目标ID',
+    targetType      tinyint    DEFAULT 1                 NOT NULL COMMENT '评论目标类型：1-图片 2-帖子',
+    targetUserId    bigint                               NOT NULL COMMENT '评论目标所属用户ID',
+    content         text                                 NOT NULL COMMENT '评论内容',
+    createTime      datetime   DEFAULT CURRENT_TIMESTAMP NULL     COMMENT '创建时间',
+    parentCommentId bigint     DEFAULT 0                 NULL     COMMENT '0表示顶级评论',
+    isDelete        tinyint(1) DEFAULT 0                 NULL     COMMENT '是否删除',
+    likeCount       bigint     DEFAULT 0                 NULL     COMMENT '点赞数',
+    dislikeCount    bigint     DEFAULT 0                 NULL     COMMENT '点踩数',
+    isRead          tinyint(1) DEFAULT 0                 NOT NULL COMMENT '是否已读（0-未读，1-已读）'
+)
+    COMMENT '评论表' COLLATE = utf8mb4_unicode_ci;
 
+CREATE INDEX idx_target
+    ON comments (targetId, targetType);
 
+CREATE INDEX idx_targetUserId_isRead
+    ON comments (targetUserId, isRead);
 
 

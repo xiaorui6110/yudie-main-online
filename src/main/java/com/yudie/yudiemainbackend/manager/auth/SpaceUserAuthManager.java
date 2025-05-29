@@ -3,6 +3,8 @@ package com.yudie.yudiemainbackend.manager.auth;
 import cn.hutool.core.io.resource.ResourceUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
+import com.yudie.yudiemainbackend.exception.BusinessException;
+import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.manager.auth.model.SpaceUserAuthConfig;
 import com.yudie.yudiemainbackend.manager.auth.model.SpaceUserPermissionConstant;
 import com.yudie.yudiemainbackend.manager.auth.model.SpaceUserRole;

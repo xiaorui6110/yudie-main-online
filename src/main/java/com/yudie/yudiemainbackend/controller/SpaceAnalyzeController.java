@@ -7,7 +7,7 @@ import com.yudie.yudiemainbackend.exception.ThrowUtils;
 import com.yudie.yudiemainbackend.model.dto.space.analyze.*;
 import com.yudie.yudiemainbackend.model.entity.Space;
 import com.yudie.yudiemainbackend.model.entity.User;
-import com.yudie.yudiemainbackend.model.vo.analyze.*;
+import com.yudie.yudiemainbackend.model.vo.space.analyze.*;
 import com.yudie.yudiemainbackend.service.SpaceAnalyzeService;
 import com.yudie.yudiemainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;

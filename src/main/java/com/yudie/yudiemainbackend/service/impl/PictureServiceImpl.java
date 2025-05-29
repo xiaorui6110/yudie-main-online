@@ -39,6 +39,7 @@ import com.yudie.yudiemainbackend.service.PictureService;
 import com.yudie.yudiemainbackend.mapper.PictureMapper;
 import com.yudie.yudiemainbackend.service.SpaceService;
 import com.yudie.yudiemainbackend.service.UserService;
+import com.yudie.yudiemainbackend.service.UserfollowsService;
 import com.yudie.yudiemainbackend.utils.ColorSimilarUtils;
 import com.yudie.yudiemainbackend.utils.ColorTransformUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -106,6 +107,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private SpaceUserAuthManager spaceUserAuthManager;
+
+    @Resource
+    private UserfollowsService userfollowsService;
 
     /**
      * 校验图片
@@ -1003,12 +1007,45 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
      * @return 图片列表
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Page<PictureVO> getFollowPicture(HttpServletRequest request, PictureQueryRequest pictureQueryRequest) {
+        long current = pictureQueryRequest.getCurrent();
+        long size = pictureQueryRequest.getPageSize();
+        Page<Picture> page = new Page<>(current, size);
+        // 查询是否登录
+        User currentUser = userService.getLoginUser(request);
+        // 处理用户未登录的情况
+        if (currentUser == null) {
+            return new Page<>();
+        }
+        // 获取用户 id
+        Long id = currentUser.getId();
+        // 获取关注列表
+        List<Long> followList = userfollowsService.getFollowList(id);
+        // 确保 followList 不为空且不包含 null 元素
+        followList = followList.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
-        // TODO 用户关注模块 userfollowsService
-
-
-        return null;
+        if (followList.isEmpty()) {
+            return new Page<>();
+        }
+        // 创建 QueryWrapper 筛选出 userId 在关注列表中的图片
+        QueryWrapper<Picture> queryWrapper = new QueryWrapper<>();
+        queryWrapper.in("userId", followList)
+                .eq("reviewStatus", PictureReviewStatusEnum.PASS.getValue())
+                .and(wrap -> wrap.isNull("spaceId").or().eq("spaceId", 0))
+                .orderByDesc("createTime");
+        // 获取图片列表
+        Page<Picture> picturePage = this.page(page, queryWrapper);
+        List<Picture> pictureList = picturePage.getRecords();
+        // 将 Picture 列表转换为 PictureVO 列表
+        List<PictureVO> pictureVOList = pictureList.stream()
+                .map(picture -> getPictureVOInternal(picture, currentUser))
+                .collect(Collectors.toList());
+        Page<PictureVO> pictureVOPage = new Page<>(current, size, picturePage.getTotal());
+        pictureVOPage.setRecords(pictureVOList);
+        return pictureVOPage;
     }
 
 

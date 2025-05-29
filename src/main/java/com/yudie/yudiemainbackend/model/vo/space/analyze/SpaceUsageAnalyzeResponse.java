@@ -1,4 +1,4 @@
-package com.yudie.yudiemainbackend.model.vo.analyze;
+package com.yudie.yudiemainbackend.model.vo.space.analyze;
 
 import lombok.Data;
 

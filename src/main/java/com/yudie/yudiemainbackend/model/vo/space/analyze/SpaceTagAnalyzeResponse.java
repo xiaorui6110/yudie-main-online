@@ -1,4 +1,4 @@
-package com.yudie.yudiemainbackend.model.vo.analyze;
+package com.yudie.yudiemainbackend.model.vo.space.analyze;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -7,24 +7,25 @@ import lombok.NoArgsConstructor;
 import java.io.Serializable;
 
 /**
- * @description: 空间用户上传行为分析响应
+ * @description: 空间图片标签分析响应
  * @author: siri
- * @date: 2025-05-28 08:24
+ * @date: 2025-05-28 08:23
  **/
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class SpaceUserAnalyzeResponse implements Serializable {
+public class SpaceTagAnalyzeResponse implements Serializable {
 
     /**
-     * 时间区间
+     * 标签名称
      */
-    private String period;
+    private String tag;
 
     /**
-     * 上传数量
+     * 使用次数
      */
     private Long count;
 
     private static final long serialVersionUID = 1L;
 }
+

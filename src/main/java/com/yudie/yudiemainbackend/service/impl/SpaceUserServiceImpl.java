@@ -286,7 +286,7 @@ public class SpaceUserServiceImpl extends ServiceImpl<SpaceUserMapper, SpaceUser
         ThrowUtils.throwIf("admin".equals(targetUser.getSpaceRole()),
                 ErrorCode.OPERATION_ERROR, "不能审核管理员");
         // 如果是通过申请，需要检查成员数量
-        if (status == 1) {
+        if (status == OperationEnum.APPROVE.getValue()) {
             long memberCount = this.count(new QueryWrapper<SpaceUser>()
                     .eq("spaceId", spaceId)
                     .eq("status", OperationEnum.APPROVE.getValue()));

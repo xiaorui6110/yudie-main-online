@@ -13,7 +13,7 @@ import com.yudie.yudiemainbackend.model.dto.space.analyze.*;
 import com.yudie.yudiemainbackend.model.entity.Picture;
 import com.yudie.yudiemainbackend.model.entity.Space;
 import com.yudie.yudiemainbackend.model.entity.User;
-import com.yudie.yudiemainbackend.model.vo.analyze.*;
+import com.yudie.yudiemainbackend.model.vo.space.analyze.*;
 import com.yudie.yudiemainbackend.service.PictureService;
 import com.yudie.yudiemainbackend.service.SpaceAnalyzeService;
 import com.yudie.yudiemainbackend.service.SpaceService;

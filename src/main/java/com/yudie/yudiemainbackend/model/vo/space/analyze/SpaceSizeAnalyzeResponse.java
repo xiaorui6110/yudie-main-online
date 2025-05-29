@@ -1,4 +1,4 @@
-package com.yudie.yudiemainbackend.model.vo.analyze;
+package com.yudie.yudiemainbackend.model.vo.space.analyze;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -7,22 +7,22 @@ import lombok.NoArgsConstructor;
 import java.io.Serializable;
 
 /**
- * @description: 空间图片标签分析响应
+ * @description: 空间图片大小分析响应
  * @author: siri
  * @date: 2025-05-28 08:23
  **/
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class SpaceTagAnalyzeResponse implements Serializable {
+public class SpaceSizeAnalyzeResponse implements Serializable {
 
     /**
-     * 标签名称
+     * 图片大小范围
      */
-    private String tag;
+    private String sizeRange;
 
     /**
-     * 使用次数
+     * 图片数量
      */
     private Long count;
 
