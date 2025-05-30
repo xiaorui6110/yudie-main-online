@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
 public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         implements SpaceService{
 
-    private final int MAX_SPACE_NAME_LENGTH = 30;
+    private static final int MAX_SPACE_NAME_LENGTH = 30;
 
     @Resource
     private UserService userService;

@@ -81,12 +81,6 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-pool2</artifactId>
         </dependency>
-<!--        &lt;!&ndash; 分库分表 &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>org.apache.shardingsphere</groupId>-->
-<!--            <artifactId>shardingsphere-jdbc-core-spring-boot-starter</artifactId>-->
-<!--            <version>5.2.0</version>-->
-<!--        </dependency>-->
         <!-- 对象存储 -->
         <dependency>
             <groupId>com.qcloud</groupId>
@@ -116,6 +110,11 @@
             <groupId>com.sun.mail</groupId>
             <artifactId>javax.mail</artifactId>
             <version>1.6.2</version>
+        </dependency>
+        <!-- elasticsearch-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
         </dependency>
         <!-- 数据库连接 -->
         <dependency>

@@ -65,13 +65,13 @@ import java.util.stream.Collectors;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         implements UserService{
 
-    private final int MIN_USERPASSWORD_LENGTH = 6;
+    private static final int MIN_USERPASSWORD_LENGTH = 6;
 
-    private final int MAX_USERPASSWORD_LENGTH = 36;
+    private static final int MAX_USERPASSWORD_LENGTH = 36;
 
-    private final int MAX_IPCOUNT = 5;
+    private static final int MAX_IPCOUNT = 5;
 
-    private final int MAX_EMAILCOUNT = 3;
+    private static final int MAX_EMAILCOUNT = 3;
 
     @Resource
     private  StringRedisTemplate stringRedisTemplate;

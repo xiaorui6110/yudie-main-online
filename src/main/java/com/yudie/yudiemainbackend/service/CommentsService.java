@@ -74,17 +74,17 @@ public interface CommentsService extends IService<Comments> {
     /**
      * 获取评论历史
      * @param commentsQueryRequest 查询评论请求
-     * @param id 用户ID
+     * @param userId 用户ID
      * @return 评论历史
      */
-    Page<CommentsVO> getCommentedHistory(CommentsQueryRequest commentsQueryRequest, Long id);
+    Page<CommentsVO> getCommentedHistory(CommentsQueryRequest commentsQueryRequest, Long userId);
 
     /**
      * 获取我的评论历史
      * @param commentsQueryRequest 查询评论请求
-     * @param id 用户ID
+     * @param userId 用户ID
      * @return 我的评论历史
      */
-    Page<CommentsVO> getMyCommentHistory(CommentsQueryRequest commentsQueryRequest, Long id);
+    Page<CommentsVO> getMyCommentHistory(CommentsQueryRequest commentsQueryRequest, Long userId);
 
 }
