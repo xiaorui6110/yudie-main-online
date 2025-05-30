@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yudie.yudiemainbackend.esdao.EsPictureDao;
+import com.yudie.yudiemainbackend.esdao.EsPostDao;
 import com.yudie.yudiemainbackend.model.dto.share.ShareQueryRequest;
 import com.yudie.yudiemainbackend.model.dto.share.ShareRequest;
 import com.yudie.yudiemainbackend.model.entity.Picture;
@@ -49,6 +51,12 @@ public class ShareRecordServiceImpl extends ServiceImpl<ShareRecordMapper, Share
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private EsPictureDao esPictureDao;
+
+    @Resource
+    private EsPostDao esPostDao;
 
     @Override
     @Async("asyncExecutor")
@@ -157,7 +165,7 @@ public class ShareRecordServiceImpl extends ServiceImpl<ShareRecordMapper, Share
                         .eq("id", targetId)
                         .ge("shareCount", -delta)
                         .update();
-                //updateEsPictureShareCount(targetId, delta);
+                updateEsPictureShareCount(targetId, delta);
                 break;
             // 帖子
             case 2:
@@ -166,7 +174,7 @@ public class ShareRecordServiceImpl extends ServiceImpl<ShareRecordMapper, Share
                         .eq("id", targetId)
                         .ge("shareCount", -delta)
                         .update();
-                //updateEsPostShareCount(targetId, delta);
+                updateEsPostShareCount(targetId, delta);
                 break;
             default:
                 log.error("Unsupported target type: {}", targetType);
@@ -174,34 +182,42 @@ public class ShareRecordServiceImpl extends ServiceImpl<ShareRecordMapper, Share
     }
 
     /**
-     * TODO 更新 ES 中图片的分享数
+     * 更新 ES 中图片的分享数
+     * @param pictureId 图片ID
+     * @param delta 分享数变化量
      */
-    //private void updateEsPictureShareCount(Long pictureId, int delta) {
-    //    try {
-    //        esPictureDao.findById(pictureId).ifPresent(esPicture -> {
-    //            esPicture.setShareCount(esPicture.getShareCount() + delta);
-    //            esPictureDao.save(esPicture);
-    //        });
-    //    } catch (Exception e) {
-    //        log.error("Failed to update ES picture share count, pictureId: {}", pictureId, e);
-    //    }
-    //}
+    private void updateEsPictureShareCount(Long pictureId, int delta) {
+        try {
+            esPictureDao.findById(pictureId).ifPresent(esPicture -> {
+                esPicture.setShareCount(esPicture.getShareCount() + delta);
+                esPictureDao.save(esPicture);
+            });
+        } catch (Exception e) {
+            log.error("Failed to update ES picture share count, pictureId: {}", pictureId, e);
+        }
+    }
 
     /**
-     * TODO 更新 ES 中帖子的分享数
+     * 更新 ES 中帖子的分享数
+     * @param postId 帖子ID
+     * @param delta 分享数变化量
      */
-    //private void updateEsPostShareCount(Long postId, int delta) {
-    //    try {
-    //        esPostDao.findById(postId).ifPresent(esPost -> {
-    //            esPost.setShareCount(esPost.getShareCount() + delta);
-    //            esPostDao.save(esPost);
-    //        });
-    //    } catch (Exception e) {
-    //        log.error("Failed to update ES post share count, postId: {}", postId, e);
-    //    }
-    //}
-    //
+    private void updateEsPostShareCount(Long postId, int delta) {
+        try {
+            esPostDao.findById(postId).ifPresent(esPost -> {
+                esPost.setShareCount(esPost.getShareCount() + delta);
+                esPostDao.save(esPost);
+            });
+        } catch (Exception e) {
+            log.error("Failed to update ES post share count, postId: {}", postId, e);
+        }
+    }
 
+    /**
+     * 获取用户未读分享记录
+     * @param userId 用户ID
+     * @return 用户未读分享记录
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public List<ShareRecordVO> getAndClearUnreadShares(Long userId) {

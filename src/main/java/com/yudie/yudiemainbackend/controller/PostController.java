@@ -11,10 +11,12 @@ import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
 import com.yudie.yudiemainbackend.manager.CrawlerManager;
+import com.yudie.yudiemainbackend.model.dto.like.LikeRequest;
 import com.yudie.yudiemainbackend.model.dto.post.PostAddRequest;
 import com.yudie.yudiemainbackend.model.dto.post.PostQueryRequest;
 import com.yudie.yudiemainbackend.model.entity.Post;
 import com.yudie.yudiemainbackend.model.entity.User;
+import com.yudie.yudiemainbackend.service.LikeRecordService;
 import com.yudie.yudiemainbackend.service.PostService;
 import com.yudie.yudiemainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +49,9 @@ public class PostController {
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private LikeRecordService likeRecordService;
 
     /**
      * 发布帖子
@@ -132,7 +137,23 @@ public class PostController {
         return ResultUtils.success(result);
     }
 
-    // TODO 点赞/取消点赞 likePost
+    /**
+     * 点赞/取消点赞
+     * @param id 帖子 id
+     * @param request 请求
+     * @return 是否点赞成功
+     */
+    @PostMapping("/like/{id}")
+    public BaseResponse<Boolean> likePost(@PathVariable Long id, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        LikeRequest likeRequest = new LikeRequest();
+        likeRequest.setTargetId(id);
+        likeRequest.setTargetType(2);
+        likeRequest.setIsLiked(true);
+        likeRecordService.doLike(likeRequest, loginUser.getId());
+        return ResultUtils.success(true);
+    }
 
     /**
      * 审核帖子

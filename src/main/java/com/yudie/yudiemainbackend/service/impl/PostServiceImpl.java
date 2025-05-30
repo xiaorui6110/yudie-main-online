@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yudie.yudiemainbackend.constant.UserConstant;
+import com.yudie.yudiemainbackend.esdao.EsPostDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
@@ -13,18 +14,14 @@ import com.yudie.yudiemainbackend.manager.CrawlerManager;
 import com.yudie.yudiemainbackend.model.dto.post.PostAddRequest;
 import com.yudie.yudiemainbackend.model.dto.post.PostAttachmentRequest;
 import com.yudie.yudiemainbackend.model.dto.post.PostQueryRequest;
-import com.yudie.yudiemainbackend.model.entity.Post;
-import com.yudie.yudiemainbackend.model.entity.PostAttachment;
-import com.yudie.yudiemainbackend.model.entity.User;
-import com.yudie.yudiemainbackend.model.entity.Userfollows;
+import com.yudie.yudiemainbackend.model.entity.*;
+import com.yudie.yudiemainbackend.model.entity.es.EsPost;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
-import com.yudie.yudiemainbackend.service.PostAttachmentService;
-import com.yudie.yudiemainbackend.service.PostService;
+import com.yudie.yudiemainbackend.service.*;
 import com.yudie.yudiemainbackend.mapper.PostMapper;
-import com.yudie.yudiemainbackend.service.UserService;
-import com.yudie.yudiemainbackend.service.UserfollowsService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -60,6 +57,17 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
 
     @Resource
     private UserfollowsService userfollowsService;
+
+    @Resource
+    private EsPostDao esPostDao;
+
+    @Resource
+    private LikeRecordService likeRecordService;
+
+    @Lazy
+    @Resource
+    private ShareRecordService shareRecordService;
+
 
     /**
      * 发布帖子
@@ -100,9 +108,15 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
         post.setStatus(0);
         boolean success = this.save(post);
         ThrowUtils.throwIf(!success, ErrorCode.OPERATION_ERROR, "创建帖子失败");
-
-        // TODO 同步到 ES
-
+        // 同步到 ES
+        try {
+            EsPost esPost = new EsPost();
+            BeanUtils.copyProperties(post, esPost);
+            esPostDao.save(esPost);
+        } catch (Exception e) {
+            log.error("Failed to sync post to ES during creation, postId: {}", post.getId(), e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
+        }
         // 3. 返回结果
         // 处理附件时，对于图片类型，使用缩略图URL
         if (CollUtil.isNotEmpty(attachments)) {
@@ -202,9 +216,13 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
         Map<Long, List<PostAttachment>> postAttachmentMap = getPostAttachments(postIds);
         // 批量查询用户信息
         Map<Long, User> userMap = getUserMap(posts);
-
-        // TODO 获取登录用户的点赞和分享信息
-
+        // 获取登录用户的点赞和分享信息
+        Map<Long, Boolean> likeMap = new HashMap<>();
+        Map<Long, Boolean> shareMap = new HashMap<>();
+        if (loginUser != null) {
+            likeMap = getPostIdIsLikedMap(loginUser, postIds);
+            shareMap = getPostIdIsSharedMap(loginUser, postIds);
+        }
         // 批量获取浏览量
         Map<Long, Long> viewCountMap = new HashMap<>();
         List<String> viewCountKeys = postIds.stream()
@@ -233,9 +251,9 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
             if (user != null) {
                 post.setUser(userService.getUserVO(user));
             }
-
-            // TODO 设置点赞和分享状态
-
+            // 设置点赞和分享状态
+            post.setIsLiked(likeMap.getOrDefault(post.getId(), false) ? 1 : 0);
+            post.setIsShared(shareMap.getOrDefault(post.getId(), false) ? 1 : 0);
             // 设置实时浏览量
             post.setViewCount(viewCountMap.getOrDefault(post.getId(), 0L));
         }
@@ -281,7 +299,51 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
                 collect(Collectors.toMap(User::getId, user -> user));
     }
 
-    // TODO 获取帖子的点赞状态映射 getPostIdIsLikedMap   获取帖子的分享状态映射 getPostIdIsSharedMap
+    /**
+     * 获取帖子的点赞状态映射
+     * @param currentUser 用户
+     * @param postIds 帖子ID
+     * @return 点赞状态
+     */
+    private Map<Long, Boolean> getPostIdIsLikedMap(User currentUser, Set<Long> postIds) {
+        // 使用通用点赞表查询
+        QueryWrapper<LikeRecord> likeQueryWrapper = new QueryWrapper<>();
+        likeQueryWrapper.in("targetId", postIds)
+                .eq("userId", currentUser.getId())
+                // 2-帖子类型
+                .eq("targetType", 2)
+                .eq("isLiked", true);
+        List<LikeRecord> likeRecords = likeRecordService.list(likeQueryWrapper);
+        return likeRecords.stream()
+                .collect(Collectors.toMap(
+                        LikeRecord::getTargetId,
+                        like -> true,
+                        (b1, b2) -> b1
+                ));
+    }
+
+    /**
+     * 获取帖子的分享状态映射
+     * @param currentUser 用户
+     * @param postIds 帖子ID
+     * @return 分享状态
+     */
+    private Map<Long, Boolean> getPostIdIsSharedMap(User currentUser, Set<Long> postIds) {
+        // 查询分享记录
+        QueryWrapper<ShareRecord> shareQueryWrapper = new QueryWrapper<>();
+        shareQueryWrapper.in("targetId", postIds)
+                .eq("userId", currentUser.getId())
+                // 2-帖子类型
+                .eq("targetType", 2)
+                .eq("isShared", true);
+        List<ShareRecord> shareRecords = shareRecordService.list(shareQueryWrapper);
+        return shareRecords.stream()
+                .collect(Collectors.toMap(
+                        ShareRecord::getTargetId,
+                        share -> true,
+                        (b1, b2) -> b1
+                ));
+    }
 
     /**
      * 审核帖子
@@ -308,9 +370,24 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
         updatePost.setReviewMessage(message);
         boolean success = this.updateById(updatePost);
         ThrowUtils.throwIf(!success, ErrorCode.OPERATION_ERROR, "更新审核状态失败");
-
-        // TODO 同步更新 ES 数据
-
+        // 同步更新 ES 数据
+        try {
+            Optional<EsPost> esOptional = esPostDao.findById(postId);
+            EsPost esPost;
+            if (esOptional.isPresent()) {
+                esPost = esOptional.get();
+                esPost.setStatus(status);
+                esPost.setReviewMessage(message);
+            } else {
+                post = this.getById(postId);
+                esPost = new EsPost();
+                BeanUtils.copyProperties(post, esPost);
+            }
+            esPostDao.save(esPost);
+        } catch (Exception e) {
+            log.error("Failed to sync post review status to ES, postId: {}", postId, e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
+        }
     }
 
     /**
@@ -431,9 +508,24 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
         // 更新操作
         boolean success = this.updateById(post);
         ThrowUtils.throwIf(!success, ErrorCode.OPERATION_ERROR, "帖子更新失败");
-
-        // TODO 同步更新 ES 数据
-
+        // 同步更新 ES 数据
+        try {
+            Optional<EsPost> esOptional = esPostDao.findById(post.getId());
+            EsPost esPost;
+            if (esOptional.isPresent()) {
+                esPost = esOptional.get();
+                // 使用新的变量名避免冲突
+                Post updatedPost = this.getById(post.getId());
+                BeanUtils.copyProperties(updatedPost, esPost);
+            } else {
+                esPost = new EsPost();
+                BeanUtils.copyProperties(post, esPost);
+            }
+            esPostDao.save(esPost);
+        } catch (Exception e) {
+            log.error("Failed to sync post to ES during update, postId: {}", post.getId(), e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
+        }
         // 更新附件时，对于图片类型，使用缩略图 URL
         if (attachments != null) {
             // 删除原有附件
@@ -649,10 +741,16 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
         post.setAttachments(attachments);
         User user = userService.getById(post.getUserId());
         post.setUser(userService.getUserVO(user));
-
-        // TODO 设置点赞和分享状态 likeRecordService shareRecordService
-
-
+        // 设置点赞和分享状态
+        if (loginUser != null) {
+            boolean isLiked = likeRecordService.isContentLiked(post.getId(), 2, loginUser.getId());
+            post.setIsLiked(isLiked ? 1 : 0);
+            boolean isShared = shareRecordService.isContentShared(post.getId(), 2, loginUser.getId());
+            post.setIsShared(isShared ? 1 : 0);
+        } else {
+            post.setIsLiked(0);
+            post.setIsShared(0);
+        }
         // 获取最新的浏览量
         long realViewCount = getViewCount(id);
         post.setViewCount(realViewCount);
@@ -688,9 +786,8 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
                             .setSql("viewCount = viewCount + " + viewCountStr)
                             .eq("id", postId)
                             .update();
-
-                    // TODO 更新ES
-
+                    // 更新ES
+                    updateEsPostViewCount(postId, Long.parseLong(viewCountStr));
                     // 更新后重置 Redis 计数
                     stringRedisTemplate.delete(viewCountKey);
                 }
@@ -701,9 +798,21 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
         }
     }
 
-
-    // TODO 更新 ES 中帖子的浏览量 updateEsPostViewCount
-
+    /**
+     * 更新 ES 中帖子的浏览量
+     * @param postId 帖子ID
+     * @param viewCount 浏览量
+     */
+    private void updateEsPostViewCount(Long postId, Long viewCount) {
+        try {
+            esPostDao.findById(postId).ifPresent(esPost -> {
+                esPost.setViewCount(esPost.getViewCount() + viewCount);
+                esPostDao.save(esPost);
+            });
+        } catch (Exception e) {
+            log.error("Failed to update ES post view count, postId: {}", postId, e);
+        }
+    }
 
 }
 

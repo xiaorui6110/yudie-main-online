@@ -1,5 +1,7 @@
 package com.yudie.yudiemainbackend.exception;
 
+import cn.dev33.satoken.exception.NotLoginException;
+import cn.dev33.satoken.exception.NotPermissionException;
 import com.yudie.yudiemainbackend.common.BaseResponse;
 import com.yudie.yudiemainbackend.common.ResultUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -15,18 +17,22 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 public class GlobalExceptionHandler {
 
-    //TODO sa-token 权限异常处理
-    //@ExceptionHandler(NotLoginException.class)
-    //public BaseResponse<?> notLoginException(NotLoginException e) {
-    //    log.error("NotLoginException", e);
-    //    return ResultUtils.error(ErrorCode.NOT_LOGIN_ERROR, e.getMessage());
-    //}
-    //
-    //@ExceptionHandler(NotPermissionException.class)
-    //public BaseResponse<?> notPermissionExceptionHandler(NotPermissionException e) {
-    //    log.error("NotPermissionException", e);
-    //    return ResultUtils.error(ErrorCode.NO_AUTH_ERROR, e.getMessage());
-    //}
+    /**
+     * sa-token 权限异常处理
+     * @param e 异常
+     * @return BaseResponse
+     */
+    @ExceptionHandler(NotLoginException.class)
+    public BaseResponse<?> notLoginException(NotLoginException e) {
+        log.error("NotLoginException", e);
+        return ResultUtils.error(ErrorCode.NOT_LOGIN_ERROR, e.getMessage());
+    }
+
+    @ExceptionHandler(NotPermissionException.class)
+    public BaseResponse<?> notPermissionExceptionHandler(NotPermissionException e) {
+        log.error("NotPermissionException", e);
+        return ResultUtils.error(ErrorCode.NOT_AUTH_ERROR, e.getMessage());
+    }
 
     @ExceptionHandler(BusinessException.class)
     public BaseResponse<?> businessExceptionHandler(BusinessException e) {

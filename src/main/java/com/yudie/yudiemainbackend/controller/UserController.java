@@ -9,15 +9,18 @@ import com.yudie.yudiemainbackend.common.DeleteRequest;
 import com.yudie.yudiemainbackend.common.ResultUtils;
 import com.yudie.yudiemainbackend.constant.CommonValue;
 import com.yudie.yudiemainbackend.constant.UserConstant;
+import com.yudie.yudiemainbackend.esdao.EsUserDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
 import com.yudie.yudiemainbackend.model.dto.user.*;
 import com.yudie.yudiemainbackend.model.entity.User;
+import com.yudie.yudiemainbackend.model.entity.es.EsUser;
 import com.yudie.yudiemainbackend.model.vo.LoginUserVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
 import com.yudie.yudiemainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,6 +44,9 @@ public class UserController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private EsUserDao esUserDao;
 
     /**
      * 用户注册
@@ -215,9 +221,10 @@ public class UserController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         boolean result = userService.removeById(deleteRequest.getId());
-
-        // TODO 从 ES 删除
-
+        if (result) {
+            // 从 ES 删除
+            esUserDao.deleteById(deleteRequest.getId());
+        }
         return ResultUtils.success(result);
     }
 
@@ -308,9 +315,14 @@ public class UserController {
         User user = new User();
         BeanUtil.copyProperties(userUpdateRequest, user);
         boolean result = userService.updateById(user);
-
-        // TODO 更新 ES
-
+        if (result) {
+            // 获取完整的用户信息
+            User updatedUser = userService.getById(user.getId());
+            // 转换为ES实体
+            EsUser esUser = new EsUser();
+            BeanUtils.copyProperties(updatedUser, esUser);
+            esUserDao.save(esUser);
+        }
         return ResultUtils.success(result);
     }
 
@@ -329,9 +341,10 @@ public class UserController {
                 .map(DeleteRequest::getId)
                 .collect(Collectors.toList());
         boolean result = userService.removeByIds(idList);
-
-        //TODO 批量删除 ES 数据
-
+        if (result) {
+            // 批量删除ES数据
+            idList.forEach(id -> esUserDao.deleteById(id));
+        }
         return ResultUtils.success(result);
     }
 

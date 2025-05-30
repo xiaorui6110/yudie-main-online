@@ -16,6 +16,9 @@ import com.yudie.yudiemainbackend.constant.CommonValue;
 import com.yudie.yudiemainbackend.constant.CrawlerConstant;
 import com.yudie.yudiemainbackend.constant.RedisConstant;
 import com.yudie.yudiemainbackend.constant.UserConstant;
+import com.yudie.yudiemainbackend.esdao.EsPictureDao;
+import com.yudie.yudiemainbackend.esdao.EsPostDao;
+import com.yudie.yudiemainbackend.esdao.EsUserDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
@@ -26,13 +29,14 @@ import com.yudie.yudiemainbackend.mapper.UserSignInRecordMapper;
 import com.yudie.yudiemainbackend.model.dto.file.UploadPictureResult;
 import com.yudie.yudiemainbackend.model.dto.user.UserModifyPassWord;
 import com.yudie.yudiemainbackend.model.dto.user.UserQueryRequest;
-import com.yudie.yudiemainbackend.model.entity.Picture;
-import com.yudie.yudiemainbackend.model.entity.User;
-import com.yudie.yudiemainbackend.model.entity.UserSignInRecord;
+import com.yudie.yudiemainbackend.model.entity.*;
+import com.yudie.yudiemainbackend.model.entity.es.EsUser;
 import com.yudie.yudiemainbackend.model.enums.UserRoleEnum;
 import com.yudie.yudiemainbackend.model.vo.LoginUserVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
 import com.yudie.yudiemainbackend.service.PictureService;
+import com.yudie.yudiemainbackend.service.PostAttachmentService;
+import com.yudie.yudiemainbackend.service.PostService;
 import com.yudie.yudiemainbackend.service.UserService;
 import com.yudie.yudiemainbackend.mapper.UserMapper;
 import com.yudie.yudiemainbackend.utils.EmailSenderUtil;
@@ -98,6 +102,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Lazy
     @Resource
     private PictureService pictureService;
+
+    @Resource
+    private EsUserDao esUserDao;
+
+    @Resource
+    private EsPictureDao esPictureDao;
+
+    @Resource
+    private EsPostDao esPostDao;
+
+    @Lazy
+    @Resource
+    private PostService postService;
+
+    @Lazy
+    @Resource
+    private PostAttachmentService postAttachmentService;
 
     /**
      * 用户注册
@@ -482,12 +503,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         // 3.修改密码
         user.setUserPassword(getEncryptPassword(userModifyPassWord.getNewPassword()));
-        int updateResult = userMapper.updateById(user);
-
-        // TODO 更新 ES
-
+        // 更新MySQL
+        boolean result = userMapper.updateById(user) > 0;
+        if (result) {
+            // 更新ES
+            EsUser esUser = new EsUser();
+            BeanUtil.copyProperties(user, esUser);
+            esUserDao.save(esUser);
+        }
         // 4.返回修改结果
-        return updateResult > 0;
+        return result;
     }
 
     /**
@@ -531,10 +556,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 更新用户头像
         user.setUserAvatar(uploadPictureResult.getUrl());
         // 更新MySQL
-        userMapper.updateById(user);
-
-        // TODO 更新ES
-
+        boolean result = userMapper.updateById(user) > 0;
+        if (result) {
+            // 更新ES
+            EsUser esUser = new EsUser();
+            BeanUtil.copyProperties(user, esUser);
+            esUserDao.save(esUser);
+        }
         return uploadPictureResult.getUrl();
     }
 
@@ -711,11 +739,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 } else {
                     stringRedisTemplate.opsForValue().set(banKey, "1");
                 }
-
-                // TODO 8. 更新ES中的用户信息
-
+                // 8. 更新ES中的用户信息
+                try {
+                    Optional<EsUser> esUserOpt = esUserDao.findById(userId);
+                    if (esUserOpt.isPresent()) {
+                        EsUser esUser = esUserOpt.get();
+                        esUser.setUserRole(isUnban ? UserConstant.DEFAULT_ROLE : CrawlerConstant.BAN_ROLE);
+                        esUserDao.save(esUser);
+                    }
+                } catch (Exception e) {
+                    log.error("更新ES用户信息失败", e);
+                }
             }
-
             return result;
         } else {
             // 状态已经是目标状态
@@ -740,23 +775,38 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             if (!pictureList.isEmpty()) {
                 // 删除数据库记录
                 pictureService.remove(pictureQueryWrapper);
-
-                // TODO 删除ES中的图片记录
+                // 删除ES中的图片记录
+                List<Long> pictureIds = pictureList.stream()
+                        .map(Picture::getId)
+                        .collect(Collectors.toList());
+                esPictureDao.deleteAllById(pictureIds);
 
             }
-
-            // TODO 2. 删除用户发布的帖子
-
+            // 2. 删除用户发布的帖子
+            QueryWrapper<Post> postQueryWrapper = new QueryWrapper<>();
+            postQueryWrapper.eq("userId", userId);
+            List<Post> postList = postService.list(postQueryWrapper);
+            if (!postList.isEmpty()) {
+                // 删除帖子附件
+                List<Long> postIds = postList.stream()
+                        .map(Post::getId)
+                        .collect(Collectors.toList());
+                QueryWrapper<PostAttachment> attachmentQueryWrapper = new QueryWrapper<>();
+                attachmentQueryWrapper.in("postId", postIds);
+                postAttachmentService.remove(attachmentQueryWrapper);
+                // 删除帖子
+                postService.remove(postQueryWrapper);
+                // 删除ES中的帖子记录
+                esPostDao.deleteAllById(postIds);
+            }
 
             // 3. 删除用户数据
             this.removeById(userId);
-
-            // TODO 删除ES中的用户记录
-
+            // 删除ES中的用户记录
+            esUserDao.deleteById(userId);
             // 4. 清理相关缓存
             String userKey = String.format("user:ban:%d", userId);
             stringRedisTemplate.delete(userKey);
-
             log.info("用户相关数据删除完成, userId={}", userId);
         } catch (Exception e) {
             log.error("删除用户相关数据失败, userId={}", userId, e);
@@ -876,11 +926,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     @Override
     public boolean removeById(Serializable id) {
-        // 从MySQL删除
+        // 从 MySQL 删除
         boolean result = super.removeById(id);
-
-            // TODO 从ES删除
-
+        if (result) {
+            // 从 ES 删除
+            esUserDao.deleteById((Long) id);
+        }
         return result;
     }
 
@@ -893,9 +944,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public boolean removeByIds(Collection<?> idList) {
         // 从 MySQL 批量删除
         boolean result = super.removeByIds(idList);
-
-            // TODO 从ES批量删除
-
+        if (result) {
+            // 从ES批量删除
+            idList.forEach(id -> esUserDao.deleteById((Long) id));
+        }
         return result;
     }
 
@@ -908,11 +960,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public boolean updateById(User entity) {
         // 更新 MySQL
         boolean result = super.updateById(entity);
-
-        // TODO 转换为ES实体
-
+        if (result) {
+            // 获取完整的用户信息
+            User updatedUser = this.getById(entity.getId());
+            // 转换为 ES 实体
+            EsUser esUser = new EsUser();
+            BeanUtil.copyProperties(updatedUser, esUser);
+            esUserDao.save(esUser);
+        }
         return result;
     }
-
 
 }

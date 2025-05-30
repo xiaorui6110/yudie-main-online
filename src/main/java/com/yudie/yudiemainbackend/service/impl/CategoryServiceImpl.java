@@ -31,7 +31,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category>
         return this.baseMapper.listCategoryByType(type);
     }
 
-
     /**
      * 获取分类包装类列表
      * @param records 分类
@@ -44,7 +43,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category>
         }
         return records.stream().map(this::getCategoryVO).collect(Collectors.toList());
     }
-
 
     /**
      * 获取分类包装类
@@ -60,7 +58,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category>
         BeanUtils.copyProperties(category, categoryVO);
         return categoryVO;
     }
-
 
     /**
      * 根据名称和类型查找分类
@@ -78,7 +75,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category>
         List<Category> categoryList = this.baseMapper.selectList(queryWrapper);
         return listCategoryVO(categoryList);
     }
-
 
     /**
      * 添加指定类型的分类

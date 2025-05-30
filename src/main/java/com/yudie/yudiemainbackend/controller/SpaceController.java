@@ -6,12 +6,15 @@ import com.yudie.yudiemainbackend.common.BaseResponse;
 import com.yudie.yudiemainbackend.common.DeleteRequest;
 import com.yudie.yudiemainbackend.common.ResultUtils;
 import com.yudie.yudiemainbackend.constant.UserConstant;
+import com.yudie.yudiemainbackend.esdao.EsSpaceDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
+import com.yudie.yudiemainbackend.manager.auth.SpaceUserAuthManager;
 import com.yudie.yudiemainbackend.model.dto.space.*;
 import com.yudie.yudiemainbackend.model.entity.Space;
 import com.yudie.yudiemainbackend.model.entity.User;
+import com.yudie.yudiemainbackend.model.entity.es.EsSpace;
 import com.yudie.yudiemainbackend.model.enums.SpaceLevelEnum;
 import com.yudie.yudiemainbackend.model.vo.SpaceVO;
 import com.yudie.yudiemainbackend.service.SpaceService;
@@ -43,6 +46,12 @@ public class SpaceController {
 
     @Resource
     private SpaceService spaceService;
+
+    @Resource
+    private SpaceUserAuthManager spaceUserAuthManager;
+
+    @Resource
+    private EsSpaceDao esSpaceDao;
 
     /**
      * 添加空间
@@ -85,9 +94,9 @@ public class SpaceController {
         ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR);
         SpaceVO spaceVO = spaceService.getSpaceVO(space, request);
         User loginUser = userService.getLoginUser(request);
-
-        // TODO 设置空间用户权限 spaceUserAuthManager
-
+        List<String> permissionList = spaceUserAuthManager.getPermissionList(space, loginUser);
+        spaceVO.setPermissionList(permissionList);
+        // 获取封装类
         return ResultUtils.success(spaceVO);
     }
 
@@ -165,11 +174,14 @@ public class SpaceController {
         ThrowUtils.throwIf(oldSpace == null, ErrorCode.NOT_FOUND_ERROR);
         // 更新MySQL
         boolean result = spaceService.updateById(space);
-
-        // TODO 更新ES
-        // 获取完整的空间信息
-        // 转换为ES实体
-
+        if (result) {
+            // 获取完整的空间信息
+            Space updatedSpace = spaceService.getById(id);
+            // 转换为ES实体
+            EsSpace esSpace = new EsSpace();
+            BeanUtils.copyProperties(updatedSpace, esSpace);
+            esSpaceDao.save(esSpace);
+        }
         return ResultUtils.success(result);
     }
 
@@ -204,11 +216,14 @@ public class SpaceController {
         }
         // 更新MySQL
         boolean result = spaceService.updateById(space);
-
-        // TODO 更新ES
-        // 获取完整的空间信息
-        // 转换为ES实体
-
+        if (result) {
+            // 获取完整的空间信息
+            Space updatedSpace = spaceService.getById(id);
+            // 转换为ES实体
+            EsSpace esSpace = new EsSpace();
+            BeanUtils.copyProperties(updatedSpace, esSpace);
+            esSpaceDao.save(esSpace);
+        }
         return ResultUtils.success(result);
     }
 
@@ -255,9 +270,10 @@ public class SpaceController {
                 .collect(Collectors.toList());
         // 批量删除MySQL数据
         boolean result = spaceService.removeByIds(ids);
-
-        // TODO 批量删除ES数据
-
+        if (result) {
+            // 批量删除ES数据
+            ids.forEach(id -> esSpaceDao.deleteById(id));
+        }
         return ResultUtils.success(result);
     }
 }

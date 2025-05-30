@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.plugins.pagination.PageDTO;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yudie.yudiemainbackend.esdao.EsPictureDao;
+import com.yudie.yudiemainbackend.esdao.EsPostDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
@@ -18,6 +20,7 @@ import com.yudie.yudiemainbackend.model.entity.Comments;
 import com.yudie.yudiemainbackend.model.entity.Picture;
 import com.yudie.yudiemainbackend.model.entity.Post;
 import com.yudie.yudiemainbackend.model.entity.User;
+import com.yudie.yudiemainbackend.model.entity.es.EsPicture;
 import com.yudie.yudiemainbackend.model.vo.CommentUserVO;
 import com.yudie.yudiemainbackend.model.vo.CommentsVO;
 import com.yudie.yudiemainbackend.model.vo.PictureVO;
@@ -33,10 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -60,6 +60,12 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
 
     @Resource
     private PictureMapper pictureMapper;
+
+    @Resource
+    private EsPictureDao esPictureDao;
+
+    @Resource
+    private EsPostDao esPostDao;
 
     /**
      * 添加评论
@@ -130,8 +136,8 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
                         .eq("id", targetId)
                         .ge("commentCount", -delta)
                         .update();
-                // TODO 更新 ES 中图片的评论数 updateEsPictureCommentCount
-                //updateEsPictureCommentCount(targetId, delta);
+                // 更新 ES 中图片的评论数 updateEsPictureCommentCount
+                updateEsPictureCommentCount(targetId, delta);
                 break;
             // 帖子
             case 2:
@@ -140,17 +146,60 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
                         .eq("id", targetId)
                         .ge("commentCount", -delta)
                         .update();
-                // TODO 更新 ES 中帖子的评论数 updateEsPostCommentCount
-                //updateEsPostCommentCount(targetId, delta);
+                // 更新 ES 中帖子的评论数 updateEsPostCommentCount
+                updateEsPostCommentCount(targetId, delta);
                 break;
             default:
                 log.error("Unsupported target type: {}", targetType);
         }
     }
 
-    //TODO 更新 ES 中图片的评论数 updateEsPictureCommentCount
+    /**
+     * 更新 ES 中图片的评论数
+     * @param pictureId 图片ID
+     * @param delta 评论数变化量
+     */
+    private void updateEsPictureCommentCount(Long pictureId, int delta) {
+        try {
+            // 先查询 ES 中是否存在该数据
+            Optional<EsPicture> esOptional = esPictureDao.findById(pictureId);
+            EsPicture esPicture;
+            if (esOptional.isPresent()) {
+                // 如果存在，只更新评论数
+                esPicture = esOptional.get();
+                long newCount = esPicture.getCommentCount() + delta;
+                // 确保评论数不会小于0
+                esPicture.setCommentCount(Math.max(0, newCount));
+            } else {
+                // 如果不存在，从 MySQL 获取完整数据
+                Picture picture = pictureMapper.selectById(pictureId);
+                if (picture == null) {
+                    return;
+                }
+                esPicture = new EsPicture();
+                BeanUtils.copyProperties(picture, esPicture);
+            }
+            esPictureDao.save(esPicture);
+        } catch (Exception e) {
+            log.error("Failed to update ES picture comment count, pictureId: {}, delta: {}", pictureId, delta, e);
+        }
+    }
 
-    //TODO 更新 ES 中帖子的评论数 updateEsPostCommentCount
+    /**
+     * 更新 ES 中帖子的评论数
+     * @param postId 帖子ID
+     * @param delta 评论数变化量
+     */
+    private void updateEsPostCommentCount(Long postId, int delta) {
+        try {
+            esPostDao.findById(postId).ifPresent(esPost -> {
+                esPost.setCommentCount(Math.max(0, esPost.getCommentCount() + delta));
+                esPostDao.save(esPost);
+            });
+        } catch (Exception e) {
+            log.error("Failed to update ES post comment count, postId: {}, delta: {}", postId, delta, e);
+        }
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -171,13 +220,11 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
         }
         // 先计算要删除的评论及其子评论的总数
         int deletedCommentCount = countCommentsRecursively(comments.getCommentId());
-
         // 删除评论及其子评论
         boolean success = deleteCommentsRecursively(comments.getCommentId());
         if (!success) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "删除评论失败");
         }
-
         // 更新 MySQL 中的评论数
         switch (comments.getTargetType()) {
             // 图片
@@ -187,8 +234,8 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
                         .eq("id", comments.getTargetId())
                         .ge("commentCount", deletedCommentCount)
                         .update();
-                // TODO 更新 ES 中图片的评论数 updateEsPictureCommentCount
-                //updateEsPictureCommentCount(comments.getTargetId(), -deletedCommentCount);
+                // 更新 ES 中图片的评论数 updateEsPictureCommentCount
+                updateEsPictureCommentCount(comments.getTargetId(), -deletedCommentCount);
                 break;
             // 帖子
             case 2:
@@ -197,13 +244,12 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
                         .eq("id", comments.getTargetId())
                         .ge("commentCount", deletedCommentCount)
                         .update();
-                // TODO 更新 ES 中帖子的评论数 updateEsPostCommentCount
-                //updateEsPostCommentCount(comments.getTargetId(), -deletedCommentCount);
+                // 更新 ES 中帖子的评论数 updateEsPostCommentCount
+                updateEsPostCommentCount(comments.getTargetId(), -deletedCommentCount);
                 break;
             default:
                 log.error("Unsupported target type: {}", comments.getTargetType());
         }
-
         return true;
     }
 

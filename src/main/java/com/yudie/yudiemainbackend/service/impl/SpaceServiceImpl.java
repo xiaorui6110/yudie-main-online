@@ -6,6 +6,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yudie.yudiemainbackend.esdao.EsSpaceDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
@@ -14,6 +15,7 @@ import com.yudie.yudiemainbackend.model.dto.space.SpaceQueryRequest;
 import com.yudie.yudiemainbackend.model.entity.Space;
 import com.yudie.yudiemainbackend.model.entity.SpaceUser;
 import com.yudie.yudiemainbackend.model.entity.User;
+import com.yudie.yudiemainbackend.model.entity.es.EsSpace;
 import com.yudie.yudiemainbackend.model.enums.OperationEnum;
 import com.yudie.yudiemainbackend.model.enums.SpaceLevelEnum;
 import com.yudie.yudiemainbackend.model.enums.SpaceRoleEnum;
@@ -53,6 +55,9 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
 
     @Resource
     private SpaceUserService spaceUserService;
+
+    @Resource
+    private EsSpaceDao esSpaceDao;
 
     /**
      * 创建空间
@@ -292,9 +297,10 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     public boolean removeById(Serializable id) {
         // 从MySQL删除
         boolean result = super.removeById(id);
-
-        // TODO 从ES删除
-
+        if (result) {
+            // 从ES删除
+            esSpaceDao.deleteById((Long) id);
+        }
         return result;
     }
 
@@ -302,9 +308,10 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     public boolean removeByIds(Collection<?> idList) {
         // 从MySQL批量删除
         boolean result = super.removeByIds(idList);
-
-        // TODO 从ES批量删除
-
+        if (result) {
+            // 从ES批量删除
+            idList.forEach(id -> esSpaceDao.deleteById((Long) id));
+        }
         return result;
     }
 
@@ -312,12 +319,14 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     public boolean updateById(Space entity) {
         // 更新MySQL
         boolean result = super.updateById(entity);
-
-            // TODO 更新ES
+        if (result) {
             // 获取完整的空间信息
-
+            Space updatedSpace = this.getById(entity.getId());
             // 转换为ES实体
-
+            EsSpace esSpace = new EsSpace();
+            BeanUtils.copyProperties(updatedSpace, esSpace);
+            esSpaceDao.save(esSpace);
+        }
         return result;
     }
 
@@ -325,9 +334,12 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     public boolean save(Space entity) {
         // 保存到MySQL
         boolean result = super.save(entity);
-
-            // TODO 保存到ES
-
+        if (result) {
+            // 保存到ES
+            EsSpace esSpace = new EsSpace();
+            BeanUtils.copyProperties(entity, esSpace);
+            esSpaceDao.save(esSpace);
+        }
         return result;
     }
 

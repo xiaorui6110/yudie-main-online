@@ -15,6 +15,7 @@ import com.yudie.yudiemainbackend.api.aliyunai.model.CreateOutPaintingTaskReques
 import com.yudie.yudiemainbackend.api.aliyunai.model.CreateOutPaintingTaskResponse;
 import com.yudie.yudiemainbackend.constant.CrawlerConstant;
 import com.yudie.yudiemainbackend.constant.RedisConstant;
+import com.yudie.yudiemainbackend.esdao.EsPictureDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
@@ -31,15 +32,13 @@ import com.yudie.yudiemainbackend.model.dto.picture.*;
 import com.yudie.yudiemainbackend.model.entity.Picture;
 import com.yudie.yudiemainbackend.model.entity.Space;
 import com.yudie.yudiemainbackend.model.entity.User;
+import com.yudie.yudiemainbackend.model.entity.es.EsPicture;
 import com.yudie.yudiemainbackend.model.enums.OperationEnum;
 import com.yudie.yudiemainbackend.model.enums.PictureReviewStatusEnum;
 import com.yudie.yudiemainbackend.model.vo.PictureVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
-import com.yudie.yudiemainbackend.service.PictureService;
+import com.yudie.yudiemainbackend.service.*;
 import com.yudie.yudiemainbackend.mapper.PictureMapper;
-import com.yudie.yudiemainbackend.service.SpaceService;
-import com.yudie.yudiemainbackend.service.UserService;
-import com.yudie.yudiemainbackend.service.UserfollowsService;
 import com.yudie.yudiemainbackend.utils.ColorSimilarUtils;
 import com.yudie.yudiemainbackend.utils.ColorTransformUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -110,6 +109,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private UserfollowsService userfollowsService;
+
+    @Resource
+    private LikeRecordService likeRecordService;
+
+    @Lazy
+    @Resource
+    private ShareRecordService shareRecordService;
+
+    @Resource
+    private EsPictureDao esPictureDao;
 
     /**
      * 校验图片
@@ -267,8 +276,19 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             UserVO userVO = userService.getUserVO(user);
             pictureVO.setUser(userVO);
         }
-        // TODO 设置点赞状态 - 使用新的通用点赞表 likeRecordService shareRecordService
-
+        // 设置点赞状态 - 使用新的通用点赞表
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser != null) {
+            // 使用 LikeRecordService 的方法来检查点赞状态
+            boolean isLiked = likeRecordService.isContentLiked(picture.getId(), 1, loginUser.getId());
+            pictureVO.setIsLiked(isLiked ? 1 : 0);
+            // 获取分享状态
+            boolean isShared = shareRecordService.isContentShared(picture.getId(), 1, loginUser.getId());
+            pictureVO.setIsShared(isShared ? 1 : 0);
+        } else {
+            pictureVO.setIsLiked(0);
+            pictureVO.setIsShared(0);
+        }
         return pictureVO;
     }
 
@@ -335,9 +355,17 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             UserVO userVO = userService.getUserVO(user);
             pictureVO.setUser(userVO);
         }
-
-        // TODO 设置点赞状态 - 使用新的通用点赞表 likeRecordService shareRecordService
-
+        // 设置点赞状态 - 使用新的通用点赞表
+        if (loginUser != null) {
+            boolean isLiked = likeRecordService.isContentLiked(picture.getId(), 1, loginUser.getId());
+            pictureVO.setIsLiked(isLiked ? 1 : 0);
+            // 获取分享状态
+            boolean isShared = shareRecordService.isContentShared(picture.getId(), 1, loginUser.getId());
+            pictureVO.setIsShared(isShared ? 1 : 0);
+        } else {
+            pictureVO.setIsLiked(0);
+            pictureVO.setIsShared(0);
+        }
         return pictureVO;
     }
 
@@ -469,9 +497,30 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         updatePicture.setReviewMessage(reviewMessage);
         boolean result = this.updateById(updatePicture);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图片审核失败，数据库操作失败");
-
-        // TODO 5. 同步更新 ES 数据
-
+        // 5. 同步更新 ES 数据
+        try {
+            // 先查询 ES 中是否存在该数据
+            Optional<EsPicture> esOptional = esPictureDao.findById(id);
+            EsPicture esPicture;
+            if (esOptional.isPresent()) {
+                // 如果存在，获取现有数据并更新审核相关字段
+                esPicture = esOptional.get();
+                esPicture.setReviewStatus(reviewStatus);
+                esPicture.setReviewMessage(reviewMessage);
+                esPicture.setReviewerId(loginUser.getId());
+                esPicture.setReviewTime(updatePicture.getReviewTime());
+            } else {
+                // 如果不存在，从 MySQL 获取完整数据并创建新的 ES 文档
+                Picture fullPicture = this.getById(id);
+                esPicture = new EsPicture();
+                BeanUtils.copyProperties(fullPicture, esPicture);
+            }
+            // 保存或更新到 ES
+            esPictureDao.save(esPicture);
+        } catch (Exception e) {
+            log.error("Failed to sync picture review status to ES, pictureId: {}", id, e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
+        }
     }
 
     /**
@@ -585,9 +634,14 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                     if (!deleteResult) {
                         return false;
                     }
-
-                    // TODO 删除 ES 数据
-
+                    // 批量删除ES数据
+                    pictureIds.forEach(id -> {
+                        try {
+                            esPictureDao.deleteById(id);
+                        } catch (Exception e) {
+                            log.error("Delete picture from ES failed, pictureId: {}", id, e);
+                        }
+                    });
                     // 删除图片文件
                     for (Picture oldPicture : pictureList) {
                         this.clearPictureFile(oldPicture);
@@ -613,12 +667,45 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                                 "批量审核通过" : "批量审核不通过")
                         .in("id", pictureIds)
                         .update();
+                if (result) {
+                    // 批量更新 ES 数据
+                    List<EsPicture> esPictures = new ArrayList<>();
+                    for (Long pictureId : pictureIds) {
+                        Optional<EsPicture> esOptional = esPictureDao.findById(pictureId);
+                        EsPicture esPicture;
+                        if (esOptional.isPresent()) {
+                            // 如果存在，只更新审核状态
+                            esPicture = esOptional.get();
+                            esPicture.setReviewStatus(reviewStatus);
+                            esPicture.setReviewTime(new Date());
+                            esPicture.setReviewMessage(operationType == OperationEnum.APPROVE.getValue() ?
+                                    "批量审核通过" : "批量审核不通过");
+                        } else {
+                            // 如果不存在，从 MySQL 获取完整数据
+                            Picture picture = this.getById(pictureId);
+                            if (picture != null) {
+                                esPicture = new EsPicture();
+                                BeanUtils.copyProperties(picture, esPicture);
+                                esPicture.setReviewStatus(reviewStatus);
+                                esPicture.setReviewTime(new Date());
+                                esPicture.setReviewMessage(operationType == OperationEnum.APPROVE.getValue() ?
+                                        "批量审核通过" : "批量审核不通过");
+                            } else {
+                                continue;
+                            }
+                        }
+                        esPictures.add(esPicture);
+                    }
 
-                // TODO 批量更新 ES 数据
-
+                    if (!esPictures.isEmpty()) {
+                        // 批量保存到 ES
+                        esPictureDao.saveAll(esPictures);
+                    }
+                }
             } catch (Exception e) {
-                log.error("批量审核图片失败", e);
-                return false;
+                log.error("Failed to sync pictures review status to ES, pictureIds: {}, operationType: {}",
+                        pictureIds, operationType, e);
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
             }
         }
         return result;
@@ -705,9 +792,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                             .update();
                     ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
                 }
-
-                // TODO 从 ES 删除
-
+                // 从ES删除
+                try {
+                    esPictureDao.deleteById(pictureId);
+                } catch (Exception e) {
+                    log.error("Delete picture from ES failed, pictureId: {}", pictureId, e);
+                }
                 return true;
             } catch (Exception e) {
                 status.setRollbackOnly();
@@ -808,9 +898,33 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 操作数据库
         boolean result = this.updateById(picture);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
-
-        // TODO 同步更新 ES 数据
-
+        // 同步更新 ES 数据
+        try {
+            // 先查询 ES 中是否存在该数据
+            Optional<EsPicture> esOptional = esPictureDao.findById(id);
+            EsPicture esPicture;
+            if (esOptional.isPresent()) {
+                // 如果存在，获取现有数据
+                esPicture = esOptional.get();
+                // 只更新需要修改的字段
+                esPicture.setName(picture.getName());
+                esPicture.setIntroduction(picture.getIntroduction());
+                esPicture.setCategory(picture.getCategory());
+                esPicture.setTags(picture.getTags());
+                esPicture.setEditTime(picture.getEditTime());
+                esPicture.setReviewStatus(picture.getReviewStatus());
+                esPicture.setReviewMessage(picture.getReviewMessage());
+            } else {
+                // 如果不存在，创建新的 ES 文档
+                esPicture = new EsPicture();
+                BeanUtils.copyProperties(picture, esPicture);
+            }
+            // 保存或更新到 ES
+            esPictureDao.save(esPicture);
+        } catch (Exception e) {
+            log.error("Failed to sync picture to ES during edit, pictureId: {}", picture.getId(), e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
+        }
     }
 
     /**
@@ -862,9 +976,38 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 5. 操作数据库进行批量更新
         boolean result = this.updateBatchById(pictureList);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "批量编辑失败");
-
-        // 6. TODO 同步更新 ES 数据
-
+        // 6. 同步更新 ES 数据
+        try {
+            List<EsPicture> esPictures = new ArrayList<>();
+            for (Picture picture : pictureList) {
+                Long pictureId = picture.getId();
+                Optional<EsPicture> esOptional = esPictureDao.findById(pictureId);
+                EsPicture esPicture;
+                if (esOptional.isPresent()) {
+                    esPicture = esOptional.get();
+                    if (StrUtil.isNotBlank(nameRule)) {
+                        esPicture.setName(picture.getName());
+                    }
+                    if (StrUtil.isNotBlank(category)) {
+                        esPicture.setCategory(category);
+                    }
+                    if (CollUtil.isNotEmpty(tags)) {
+                        esPicture.setTags(JSONUtil.toJsonStr(tags));
+                    }
+                } else {
+                    Picture fullPicture = this.getById(pictureId);
+                    esPicture = new EsPicture();
+                    BeanUtils.copyProperties(fullPicture, esPicture);
+                }
+                esPictures.add(esPicture);
+            }
+            // 批量保存到 ES
+            esPictureDao.saveAll(esPictures);
+        } catch (Exception e) {
+            log.error("Failed to sync pictures to ES during batch edit, pictureIds: {}",
+                    pictureIdList.toString(), e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
+        }
     }
 
 
@@ -1146,10 +1289,29 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         if (!success) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR);
         }
-
-        // TODO 同步更新 ES 数据
-
-        return true;
+        // 同步更新 ES 数据
+        try {
+            Optional<EsPicture> esOptional = esPictureDao.findById(picture.getId());
+            EsPicture esPicture;
+            if (esOptional.isPresent()) {
+                esPicture = esOptional.get();
+                esPicture.setName(picture.getName());
+                esPicture.setIntroduction(picture.getIntroduction());
+                esPicture.setCategory(picture.getCategory());
+                esPicture.setTags(picture.getTags());
+                esPicture.setEditTime(picture.getEditTime());
+                esPicture.setReviewStatus(picture.getReviewStatus());
+                esPicture.setReviewMessage(picture.getReviewMessage());
+            } else {
+                esPicture = new EsPicture();
+                BeanUtils.copyProperties(picture, esPicture);
+            }
+            esPictureDao.save(esPicture);
+            return true;
+        } catch (Exception e) {
+            log.error("同步ES数据失败, pictureId: {}", picture.getId(), e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
+        }
     }
 
 

@@ -5,10 +5,12 @@ import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yudie.yudiemainbackend.esdao.EsSearchKeywordDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.model.dto.search.SearchRequest;
 import com.yudie.yudiemainbackend.model.entity.*;
+import com.yudie.yudiemainbackend.model.entity.es.EsSearchKeyword;
 import com.yudie.yudiemainbackend.model.enums.SpaceLevelEnum;
 import com.yudie.yudiemainbackend.model.vo.PictureVO;
 import com.yudie.yudiemainbackend.model.vo.SpaceVO;
@@ -85,6 +87,9 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
     @Resource
     private SpaceUserService spaceUserService;
 
+    @Resource
+    private EsSearchKeywordDao esSearchKeywordDao;
+
     /**
      * 获取热门搜索（优先从Redis获取，其次MySQL，最后ES）
      * @param type 搜索类型
@@ -111,16 +116,16 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
                         .map(HotSearch::getKeyword)
                         .collect(Collectors.toList());
             }
-            //else {
-            //    // TODO 3. MySQL 没有，从 ES 获取
-            //    List<EsSearchKeyword> keywords = esSearchKeywordDao
-            //            .findByTypeAndUpdateTimeAfterOrderByCountDesc(type, startTime);
-            //
-            //    resultList = keywords.stream()
-            //            .limit(size)
-            //            .map(EsSearchKeyword::getKeyword)
-            //            .collect(Collectors.toList());
-            //}
+            else {
+                // 3. MySQL 没有，从 ES 获取
+                List<EsSearchKeyword> keywords = esSearchKeywordDao
+                        .findByTypeAndUpdateTimeAfterOrderByCountDesc(type, startTime);
+
+                resultList = keywords.stream()
+                        .limit(size)
+                        .map(EsSearchKeyword::getKeyword)
+                        .collect(Collectors.toList());
+            }
             // 如果有结果，更新缓存
             if (!resultList.isEmpty()) {
                 updateHotSearchCache(type, resultList);
@@ -175,8 +180,8 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
         if (StringUtils.isBlank(searchText)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "搜索关键词不能为空");
         }
-        // TODO 记录搜索关键词
-        //recordSearchKeyword(searchText, type);
+        // 记录搜索关键词
+        recordSearchKeyword(searchText, type);
         // 执行搜索
         switch (type) {
             case "picture":
@@ -197,30 +202,29 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
      * @param searchText 搜索关键词
      * @param type 搜索类型
      */
-    //private void recordSearchKeyword(String searchText, String type) {
-    //    try {
-    //        // 查找是否存在该关键词记录
-    //        EsSearchKeyword keyword = esSearchKeywordDao.findByTypeAndKeyword(type, searchText);
-    //
-    //        if (keyword != null) {
-    //            // 更新搜索次数
-    //            keyword.setCount(keyword.getCount() + 1);
-    //            keyword.setUpdateTime(new Date());
-    //        } else {
-    //            // 新增关键词记录
-    //            keyword = new EsSearchKeyword();
-    //            keyword.setKeyword(searchText);
-    //            keyword.setType(type);
-    //            keyword.setCount(1L);
-    //            keyword.setCreateTime(new Date());
-    //            keyword.setUpdateTime(new Date());
-    //        }
-    //        esSearchKeywordDao.save(keyword);
-    //    } catch (Exception e) {
-    //        log.error("记录搜索关键词失败", e);
-    //    }
-    //}
+    private void recordSearchKeyword(String searchText, String type) {
+        try {
+            // 查找是否存在该关键词记录
+            EsSearchKeyword keyword = esSearchKeywordDao.findByTypeAndKeyword(type, searchText);
 
+            if (keyword != null) {
+                // 更新搜索次数
+                keyword.setCount(keyword.getCount() + 1);
+                keyword.setUpdateTime(new Date());
+            } else {
+                // 新增关键词记录
+                keyword = new EsSearchKeyword();
+                keyword.setKeyword(searchText);
+                keyword.setType(type);
+                keyword.setCount(1L);
+                keyword.setCreateTime(new Date());
+                keyword.setUpdateTime(new Date());
+            }
+            esSearchKeywordDao.save(keyword);
+        } catch (Exception e) {
+            log.error("记录搜索关键词失败", e);
+        }
+    }
 
     /**
      * 搜索图片
@@ -235,14 +239,12 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
                 .should(QueryBuilders.matchQuery("name", searchText))
                 .should(QueryBuilders.matchQuery("introduction", searchText))
                 .should(QueryBuilders.matchQuery("tags", searchText));
-
         // 尝试将搜索文本转换为图片ID
         try {
             Long pictureId = Long.parseLong(searchText);
             boolQueryBuilder.should(QueryBuilders.termQuery("id", pictureId));
         } catch (NumberFormatException ignored) {
         }
-
         boolQueryBuilder.minimumShouldMatch(1)
                 // 必要条件：已通过审核、未删除、公共图库
                 .must(QueryBuilders.termQuery("reviewStatus", 1))
@@ -252,7 +254,6 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
                                 .mustNot(QueryBuilders.existsQuery("spaceId")))
                         .should(QueryBuilders.termQuery("spaceId", 0))
                 );
-
         // 构建搜索查询
         NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
                 .withQuery(boolQueryBuilder)
@@ -260,14 +261,12 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
                 .withSort(SortBuilders.scoreSort().order(DESC))
                 .withSort(SortBuilders.fieldSort("createTime").order(DESC))
                 .build();
-
         // 执行搜索
         SearchHits<Picture> searchHits = elasticsearchRestTemplate.search(
                 searchQuery,
                 Picture.class,
                 IndexCoordinates.of(PICTURE_INDEX)
         );
-
         // 获取搜索结果并转换为PictureVO
         List<PictureVO> pictureVOList = searchHits.getSearchHits().stream()
                 .map(hit -> hit.getContent())
@@ -296,13 +295,11 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
         String searchText = searchRequest.getSearchText();
         Integer current = searchRequest.getCurrent();
         Integer pageSize = searchRequest.getPageSize();
-
         // 构建布尔查询
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
                 .should(QueryBuilders.matchQuery("userName", searchText))
                 .should(QueryBuilders.matchQuery("userAccount", searchText))
                 .should(QueryBuilders.matchQuery("userProfile", searchText));
-
         // 尝试将搜索文本转换为用户ID
         try {
             Long userId = Long.parseLong(searchText);
@@ -320,20 +317,17 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
                 .withSort(SortBuilders.scoreSort().order(DESC))
                 .withSort(SortBuilders.fieldSort("createTime").order(DESC))
                 .build();
-
         // 执行搜索
         SearchHits<User> searchHits = elasticsearchRestTemplate.search(
                 searchQuery,
                 User.class,
                 IndexCoordinates.of(USER_INDEX)
         );
-
         // 获取搜索结果并转换为UserVO
         List<UserVO> userVOList = searchHits.getSearchHits().stream()
                 .map(SearchHit::getContent)
                 .map(userService::getUserVO)
                 .collect(Collectors.toList());
-
         return new org.springframework.data.domain.PageImpl<>(
                 userVOList,
                 PageRequest.of(current - 1, pageSize),
