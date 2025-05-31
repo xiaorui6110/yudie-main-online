@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * @description: ES 配置
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 10:53
  **/
 @Slf4j

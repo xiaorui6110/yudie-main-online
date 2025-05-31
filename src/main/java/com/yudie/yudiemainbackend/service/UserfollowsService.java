@@ -12,7 +12,7 @@ import com.yudie.yudiemainbackend.model.vo.UserVO;
 import java.util.List;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【userfollows(用户关注表)】的数据库操作Service
 * @createDate 2025-05-28 20:08:30
 */

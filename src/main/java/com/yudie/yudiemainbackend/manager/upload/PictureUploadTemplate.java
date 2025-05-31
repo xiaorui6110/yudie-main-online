@@ -23,7 +23,7 @@ import java.util.List;
 
 /**
  * @description: 图片上传模板
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 20:36
  **/
 @Slf4j

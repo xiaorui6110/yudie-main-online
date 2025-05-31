@@ -8,7 +8,7 @@ import java.util.Date;
 import java.util.List;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【hot_search(热门搜索记录表)】的数据库操作Mapper
 * @createDate 2025-05-30 09:53:07
 * @Entity com.yudie.yudiemainbackend.model.entity.HotSearch

@@ -43,7 +43,7 @@ import java.util.List;
 
 /**
  * @description: 图片实现类接口
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-25 11:43
  **/
 @Slf4j

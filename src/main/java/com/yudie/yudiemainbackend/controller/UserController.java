@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 
 /**
  * @description: 用户实现类接口
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-21 20:13
  **/
 @Slf4j
@@ -58,14 +58,14 @@ public class UserController {
         if (userRegisterRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        String userEmail = userRegisterRequest.getUserEmail();
+        String email = userRegisterRequest.getEmail();
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
         String code = userRegisterRequest.getCode();
-        if (StrUtil.hasBlank(userEmail, userPassword, checkPassword)) {
+        if (StrUtil.hasBlank(email, userPassword, checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        long result = userService.userRegister(userEmail, userPassword, checkPassword, code);
+        long result = userService.userRegister(email, userPassword, checkPassword, code);
         return ResultUtils.success(result);
     }
 
@@ -77,10 +77,10 @@ public class UserController {
      */
     @PostMapping("/get_emailcode")
     public BaseResponse<String> getEmailCode(@RequestBody EmailCodeRequest emailCodeRequest, HttpServletRequest request) {
-        if(emailCodeRequest == null || StrUtil.hasBlank(emailCodeRequest.getUserEmail(), emailCodeRequest.getType())) {
+        if(emailCodeRequest == null || StrUtil.hasBlank(emailCodeRequest.getEmail(), emailCodeRequest.getType())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        userService.sendEmailCode(emailCodeRequest.getUserEmail(), emailCodeRequest.getType(), request);
+        userService.sendEmailCode(emailCodeRequest.getEmail(), emailCodeRequest.getType(), request);
         return ResultUtils.success("验证码发送成功");
     }
 
@@ -265,15 +265,15 @@ public class UserController {
         if (resetPasswordRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        String userEmail = resetPasswordRequest.getUserEmail();
+        String email = resetPasswordRequest.getEmail();
         String newPassword = resetPasswordRequest.getNewPassword();
         String checkPassword = resetPasswordRequest.getCheckPassword();
         String code = resetPasswordRequest.getCode();
 
-        if (StrUtil.hasBlank(userEmail, newPassword, checkPassword, code)) {
+        if (StrUtil.hasBlank(email, newPassword, checkPassword, code)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        boolean result = userService.resetPassword(userEmail, newPassword, checkPassword, code);
+        boolean result = userService.resetPassword(email, newPassword, checkPassword, code);
         return ResultUtils.success(result);
     }
 

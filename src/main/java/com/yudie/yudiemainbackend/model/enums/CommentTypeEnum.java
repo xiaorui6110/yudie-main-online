@@ -4,7 +4,7 @@ import lombok.Getter;
 
 /**
  * @description: 评论类型枚举类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-29 22:14
  **/
 @Getter

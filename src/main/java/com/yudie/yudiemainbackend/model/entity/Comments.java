@@ -10,7 +10,7 @@ import lombok.Data;
 
 /**
  * 评论表
- * @author lenovo
+ * @author xiaorui
  * @TableName comments
  */
 @TableName(value ="comments")

@@ -17,7 +17,7 @@ import java.util.Properties;
 
 /**
  * @description: 邮件发送工具类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-21 15:12
  **/
 

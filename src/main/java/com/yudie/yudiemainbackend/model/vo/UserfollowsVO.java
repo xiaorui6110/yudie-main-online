@@ -7,7 +7,7 @@ import java.util.Date;
 
 /**
  * @description: 用户关注视图
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 20:11
  **/
 @Data

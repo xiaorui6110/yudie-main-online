@@ -25,7 +25,7 @@ import java.util.List;
 
 /**
  * @description: 审核内容检查任务
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 16:13
  **/
 @Slf4j
@@ -146,7 +146,7 @@ public class ContentReviewJob {
                             "<td>%s</td>" +
                             "</tr>",
                     user.getId(),
-                    user.getUserEmail(),
+                    user.getEmail(),
                     picture.getId(),
                     picture.getName(),
                     new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(picture.getCreateTime())
@@ -165,7 +165,7 @@ public class ContentReviewJob {
                             "<td>%s</td>" +
                             "</tr>",
                     user.getId(),
-                    user.getUserEmail(),
+                    user.getEmail(),
                     post.getId(),
                     post.getTitle(),
                     new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(post.getCreateTime())

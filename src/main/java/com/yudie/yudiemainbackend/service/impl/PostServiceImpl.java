@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【post(论坛帖子表)】的数据库操作Service实现
 * @createDate 2025-05-29 15:36:22
 */

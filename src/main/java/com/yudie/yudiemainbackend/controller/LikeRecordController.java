@@ -20,7 +20,7 @@ import java.util.List;
 
 /**
  * @description: 点赞实现类接口
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-30 15:35
  **/
 @Slf4j

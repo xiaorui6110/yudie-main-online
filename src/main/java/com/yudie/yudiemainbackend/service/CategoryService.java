@@ -7,7 +7,7 @@ import com.yudie.yudiemainbackend.model.vo.CategoryVO;
 import java.util.List;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【category(分类表)】的数据库操作Service
 * @createDate 2025-05-23 17:09:48
 */

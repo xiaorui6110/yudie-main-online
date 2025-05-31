@@ -21,7 +21,7 @@ import javax.servlet.http.HttpServletRequest;
 
 /**
  * @description: 消息中心实现类接口
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 10:50
  **/
 @Slf4j

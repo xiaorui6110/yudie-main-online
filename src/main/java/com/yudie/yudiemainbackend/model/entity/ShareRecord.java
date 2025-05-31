@@ -10,7 +10,7 @@ import lombok.Data;
 
 /**
  * 分享记录表
- * @author lenovo
+ * @author xiaorui
  * @TableName share_record
  */
 @TableName(value ="share_record")

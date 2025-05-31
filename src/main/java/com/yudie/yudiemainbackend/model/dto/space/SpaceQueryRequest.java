@@ -8,7 +8,7 @@ import java.io.Serializable;
 
 /**
  * @description: 查询空间请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-27 14:47
  **/
 @EqualsAndHashCode(callSuper = true)

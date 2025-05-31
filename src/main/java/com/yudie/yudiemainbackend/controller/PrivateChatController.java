@@ -19,7 +19,7 @@ import javax.servlet.http.HttpServletRequest;
 
 /**
  * @description: 私聊实现类接口
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 15:28
  **/
 @Slf4j

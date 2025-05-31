@@ -4,7 +4,7 @@ import lombok.Data;
 
 /**
  * @description: 留言中心VO
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 10:43
  **/
 @Data

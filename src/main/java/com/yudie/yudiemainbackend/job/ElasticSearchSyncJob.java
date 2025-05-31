@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 
 /**
  * @description: ES 同步任务
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 16:14
  **/
 @Slf4j

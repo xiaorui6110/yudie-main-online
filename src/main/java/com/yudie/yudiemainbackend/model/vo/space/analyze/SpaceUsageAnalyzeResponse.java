@@ -6,7 +6,7 @@ import java.io.Serializable;
 
 /**
  * @description: 空间资源使用分析响应类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 08:24
  **/
 @Data

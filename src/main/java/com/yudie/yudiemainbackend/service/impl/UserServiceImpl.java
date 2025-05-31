@@ -60,7 +60,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【user(用户)】的数据库操作Service实现
 * @createDate 2025-05-21 12:32:41
 */
@@ -123,20 +123,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     /**
      * 用户注册
      *
-     * @param userEmail 用户邮箱
+     * @param email 用户邮箱
      * @param userPassword 用户密码
      * @param checkPassword 校验密码
      * @param code 验证码
      * @return 用户注册成功后的ID
      */
     @Override
-    public long userRegister(String userEmail, String userPassword, String checkPassword, String code) {
+    public long userRegister(String email, String userPassword, String checkPassword, String code) {
         // 1. 校验用户输入的数据
-        if (StrUtil.hasBlank(userEmail, userPassword, checkPassword, code)) {
+        if (StrUtil.hasBlank(email, userPassword, checkPassword, code)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数为空");
         }
         // 校验邮箱、密码
-        if (!userEmail.matches("^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+$")) {
+        if (!email.matches("^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+$")) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱格式错误");
         }
         if (userPassword.length() < MIN_USERPASSWORD_LENGTH) {
@@ -149,22 +149,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"两次输入的密码不一致");
         }
         // 校验验证码
-        String verifyCodeKey = String.format("email:code:verify:register:%s", userEmail);
+        String verifyCodeKey = String.format("email:code:verify:register:%s", email);
         String correctCode = stringRedisTemplate.opsForValue().get(verifyCodeKey);
         if (StrUtil.isBlank(correctCode) || !correctCode.equals(code)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"验证码错误或已过期");
         }
-        synchronized (userEmail.intern()) {
+        synchronized (email.intern()) {
             // 检查邮箱是否已被注册
             QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("userEmail", userEmail);
+            queryWrapper.eq("email", email);
             long count = this.baseMapper.selectCount(queryWrapper);
             if (count > 0) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱已被注册");
             }
             // 检查账号是否已被使用
             // 使用邮箱的前缀作为用户账号
-            String userAccount = userEmail.substring(0, userEmail.indexOf("@"));
+            String userAccount = email.substring(0, email.indexOf("@"));
             queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("userAccount", userAccount);
             count = this.baseMapper.selectCount(queryWrapper);
@@ -178,7 +178,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             // 保存用户信息
             User user = new User();
             user.setUserAccount(userAccount);
-            user.setUserEmail(userEmail);
+            user.setEmail(email);
             user.setUserPassword(encryptPassword);
             // 使用用户账号作为默认用户名
             user.setUserName(userAccount);
@@ -208,25 +208,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 发送邮箱验证码
-     * @param userEmail 用户邮箱
+     * @param email 用户邮箱
      * @param type 验证码类型
      * @param request HTTP请求
      */
     @Override
-    public void sendEmailCode(String userEmail, String type, HttpServletRequest request) {
-        if (StrUtil.hasBlank(userEmail, type)) {
+    public void sendEmailCode(String email, String type, HttpServletRequest request) {
+        if (StrUtil.hasBlank(email, type)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数为空");
         }
         // 检测高频操作
         crawlerManager.detectFrequentRequest(request);
         // 检查邮箱格式
-        if (!userEmail.matches("^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+$")) {
+        if (!email.matches("^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+$")) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱格式错误");
         }
         // 获取客户端 IP
         String clientIp = request.getRemoteAddr();
         String ipKey = String.format("email:code:ip:%s", clientIp);
-        String emailKey = String.format("email:code:email:%s", userEmail);
+        String emailKey = String.format("email:code:email:%s", email);
         // 检查 IP 是否频繁请求验证码
         String ipCount = stringRedisTemplate.opsForValue().get(ipKey);
         if (ipCount != null && Integer.parseInt(ipCount)  > MAX_IPCOUNT) {
@@ -241,7 +241,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         String code = RandomUtil.randomNumbers(6);
         // 发送验证码
         try {
-            emailSenderUtil.sendEmail(userEmail, code);
+            emailSenderUtil.sendEmail(email, code);
         } catch (Exception e) {
             log.error("发送邮件失败", e);
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,"发送验证码失败");
@@ -252,7 +252,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         stringRedisTemplate.expire(ipKey,1, TimeUnit.HOURS);
         stringRedisTemplate.expire(emailKey,1, TimeUnit.HOURS);
         // 将验证码存入 Redis，设置 5 分钟过期
-        String verifyCodeKey = String.format("email:code:verify:%s:%s", type, userEmail);
+        String verifyCodeKey = String.format("email:code:verify:%s:%s", type, email);
         stringRedisTemplate.opsForValue().set(verifyCodeKey, code, 5, TimeUnit.MINUTES);
 
     }
@@ -283,7 +283,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         queryWrapper.eq("userPassword", encryptPassword)
                 .and( wrapper -> wrapper.eq("userAccount", accountOrEmail)
                         .or()
-                        .eq("userEmail", accountOrEmail));
+                        .eq("email", accountOrEmail));
         User user = this.getOne(queryWrapper);
         // 用户不存在
         if (user == null) {
@@ -621,7 +621,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         synchronized (newEmail.intern()) {
             // 检查新邮箱是否已被使用
             QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("userEmail", newEmail);
+            queryWrapper.eq("email", newEmail);
             long count = this.baseMapper.selectCount(queryWrapper);
             if (count > 0) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱已被使用");
@@ -629,7 +629,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             // 4.修改邮箱
             User user = new User();
             user.setId(loginUser.getId());
-            user.setUserEmail(newEmail);
+            user.setEmail(newEmail);
             boolean updateResult = this.updateById(user);
             if (!updateResult) {
                 throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,"修改邮箱失败");
@@ -643,19 +643,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 重置密码（忘记密码的情况下）
-     * @param userEmail 用户邮箱
+     * @param email 用户邮箱
      * @param newPassword 新密码
      * @param checkPassword 确认密码
      * @param code 验证码
      * @return 重置密码结果
      */
     @Override
-    public boolean resetPassword(String userEmail, String newPassword, String checkPassword, String code) {
+    public boolean resetPassword(String email, String newPassword, String checkPassword, String code) {
         // 1.校验用户输入信息
-        if (StrUtil.hasBlank(userEmail, newPassword, checkPassword, code)) {
+        if (StrUtil.hasBlank(email, newPassword, checkPassword, code)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
         }
-        if (!userEmail.matches("^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+$")) {
+        if (!email.matches("^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+$")) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱格式错误");
         }
         if (newPassword.length() < MIN_USERPASSWORD_LENGTH) {
@@ -668,14 +668,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"两次输入的密码不一致");
         }
         // 2.校验验证码
-        String verifyCodeKey = String.format("email:code:verify:changeEmail:%s", userEmail);
+        String verifyCodeKey = String.format("email:code:verify:changeEmail:%s", email);
         String correctCode = stringRedisTemplate.opsForValue().get(verifyCodeKey);
         if (StrUtil.isBlank(correctCode) || !correctCode.equals(code)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"验证码错误或已过期");
         }
         // 3.查询用户信息
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("userEmail", userEmail);
+        queryWrapper.eq("email", email);
         User user = this.getOne(queryWrapper);
         if (user == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"用户不存在");

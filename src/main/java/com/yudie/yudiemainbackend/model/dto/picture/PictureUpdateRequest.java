@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * @description: 图片更新请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 21:43
  **/
 @Data

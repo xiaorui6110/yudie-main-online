@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * @description: 反爬管理
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-24 16:18
  **/
 @Component
@@ -170,7 +170,7 @@ public class CrawlerManager {
         String emailContent = template
                 .replace(":userId", String.valueOf(user.getId()))
                 .replace(":userAccount", user.getUserAccount())
-                .replace(":userEmail", user.getUserEmail())
+                .replace(":email", user.getEmail())
                 .replace(":ipAddress", ipAddress)
                 .replace(":accessCount", String.valueOf(accessCount))
                 .replace(":detectTime", sdf.format(new Date()));

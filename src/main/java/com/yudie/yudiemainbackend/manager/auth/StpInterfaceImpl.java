@@ -37,7 +37,7 @@ import static com.yudie.yudiemainbackend.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
  * @description: 自定义权限加载接口实现类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 14:52
  * 参考：<a href="https://sa-token.cc/doc.html#/use/jur-auth">...</a>
  **/

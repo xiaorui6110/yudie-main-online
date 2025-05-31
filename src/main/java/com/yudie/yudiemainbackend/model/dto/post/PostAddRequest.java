@@ -6,7 +6,7 @@ import java.util.List;
 
 /**
  * @description: 发布帖子请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-29 15:45
  **/
 @Data

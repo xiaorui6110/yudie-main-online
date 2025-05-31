@@ -4,7 +4,7 @@ import lombok.Getter;
 
 /**
  * @description: 业务异常类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-20 16:35
  **/
 @Getter

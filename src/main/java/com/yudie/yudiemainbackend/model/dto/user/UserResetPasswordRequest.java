@@ -6,7 +6,7 @@ import java.io.Serializable;
 
 /**
  * @description: 重置密码请求（忘记密码的情况下）
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-22 15:27
  **/
 @Data
@@ -15,7 +15,7 @@ public class UserResetPasswordRequest implements Serializable {
     /**
      * 用户邮箱
      */
-    private String userEmail;
+    private String email;
 
     /**
      * 新密码

@@ -9,7 +9,7 @@ import javax.annotation.Resource;
 
 /**
  * @description: WebSocket 配置（定义连接）
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 19:51
  **/
 @Configuration

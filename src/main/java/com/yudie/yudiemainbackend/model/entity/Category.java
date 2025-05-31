@@ -8,7 +8,7 @@ import lombok.Data;
 
 /**
  * 分类表
- * @author siri
+ * @author xiaorui
  * @TableName category
  */
 @TableName(value ="category")

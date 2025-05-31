@@ -4,7 +4,7 @@ import com.yudie.yudiemainbackend.exception.ErrorCode;
 
 /**
  * @description: 响应工具类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-20 16:52
  **/
 

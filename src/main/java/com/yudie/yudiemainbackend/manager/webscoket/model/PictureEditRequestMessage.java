@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * @description: 图片编辑请求消息
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 19:44
  **/
 @Data

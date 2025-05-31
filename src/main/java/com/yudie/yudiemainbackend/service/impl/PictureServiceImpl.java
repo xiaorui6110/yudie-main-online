@@ -68,7 +68,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【picture(图片表)】的数据库操作Service实现
 * @createDate 2025-05-23 17:07:52
 */

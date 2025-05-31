@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * @description: 帖子实现类接口
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-29 21:44
  **/
 @Slf4j

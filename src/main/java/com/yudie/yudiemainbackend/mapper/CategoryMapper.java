@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【category(分类表)】的数据库操作Mapper
 * @createDate 2025-05-23 17:09:48
 * @Entity com.yudie.yudiemainbackend.model.entity.Category

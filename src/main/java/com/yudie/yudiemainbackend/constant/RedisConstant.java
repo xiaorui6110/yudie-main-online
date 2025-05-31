@@ -2,7 +2,7 @@ package com.yudie.yudiemainbackend.constant;
 
 /**
  * @description: Redis 常量类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-22 20:17
  **/
 public interface RedisConstant {

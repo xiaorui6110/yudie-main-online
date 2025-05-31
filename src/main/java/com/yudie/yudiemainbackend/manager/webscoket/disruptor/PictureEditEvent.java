@@ -7,7 +7,7 @@ import org.springframework.web.socket.WebSocketSession;
 
 /**
  * @description: 图片编辑事件
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 19:52
  **/
 @Data

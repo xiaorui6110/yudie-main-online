@@ -37,7 +37,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【space_user(空间用户关联表)】的数据库操作Service实现
 * @createDate 2025-05-26 19:54:18
 */

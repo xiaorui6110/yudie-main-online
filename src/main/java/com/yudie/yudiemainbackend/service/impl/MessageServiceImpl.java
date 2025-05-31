@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【message(留言板表)】的数据库操作Service实现
 * @createDate 2025-05-31 10:38:11
 */

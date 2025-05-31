@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【userfollows(用户关注表)】的数据库操作Service实现
 * @createDate 2025-05-28 20:08:30
 */

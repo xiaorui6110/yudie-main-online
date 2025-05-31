@@ -9,7 +9,7 @@ import java.util.Date;
 
 /**
  * @description: 空间成员响应类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-26 19:59
  **/
 @Data

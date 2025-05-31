@@ -24,6 +24,7 @@ import com.yudie.yudiemainbackend.service.PostService;
 import com.yudie.yudiemainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【like_record(点赞记录表)】的数据库操作Service实现
 * @createDate 2025-05-30 14:27:05
 */
@@ -45,9 +46,11 @@ import java.util.stream.Collectors;
 public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRecord>
     implements LikeRecordService{
 
+    @Lazy
     @Resource
     private PictureService pictureService;
 
+    @Lazy
     @Resource
     private PostService postService;
 

@@ -24,7 +24,7 @@ import javax.servlet.http.HttpServletRequest;
 
 /**
  * @description: 用户关注实现类接口
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 22:17
  **/
 @Slf4j

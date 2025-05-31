@@ -8,7 +8,7 @@ import lombok.Data;
 
 /**
  * 标签表
- * @author siri
+ * @author xiaorui
  * @TableName tag
  */
 @TableName(value ="tag")

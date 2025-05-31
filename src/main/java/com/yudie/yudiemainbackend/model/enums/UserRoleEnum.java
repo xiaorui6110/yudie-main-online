@@ -5,7 +5,7 @@ import lombok.Getter;
 
 /**
  * @description: 用户角色枚举类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-21 14:45
  **/
 @Getter

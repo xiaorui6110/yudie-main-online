@@ -10,7 +10,7 @@ import java.util.Date;
 
 /**
  * @description: ES 搜索关键词类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-30 20:11
  **/
 @Document(indexName = "search_keyword")

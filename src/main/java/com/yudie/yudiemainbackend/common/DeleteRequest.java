@@ -6,7 +6,7 @@ import java.io.Serializable;
 
 /**
  * @description: 通用的删除请求类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-20 17:01
  **/
 @Data

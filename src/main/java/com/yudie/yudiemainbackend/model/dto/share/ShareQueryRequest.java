@@ -8,7 +8,7 @@ import java.io.Serializable;
 
 /**
  * @description: 分享查询请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-30 14:35
  **/
 @Data

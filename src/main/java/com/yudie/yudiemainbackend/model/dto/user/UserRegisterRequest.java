@@ -6,7 +6,7 @@ import java.io.Serializable;
 
 /**
  * @description: 用户注册请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-21 14:51
  **/
 @Data
@@ -17,7 +17,7 @@ public class UserRegisterRequest implements Serializable {
     /**
      * 邮箱
      */
-    private String userEmail;
+    private String email;
 
     /**
      * 密码

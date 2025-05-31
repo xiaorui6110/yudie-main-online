@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * @description: 阿里云 AI 接口
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-26 18:46
  **/
 

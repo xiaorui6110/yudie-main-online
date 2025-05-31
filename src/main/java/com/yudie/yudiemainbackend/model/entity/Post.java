@@ -12,7 +12,7 @@ import lombok.extern.log4j.Log4j;
 
 /**
  * 论坛帖子表
- * @author lenovo
+ * @author xiaorui
  * @TableName post
  */
 @TableName(value ="post")

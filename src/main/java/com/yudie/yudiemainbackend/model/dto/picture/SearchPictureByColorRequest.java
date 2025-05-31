@@ -6,7 +6,7 @@ import java.io.Serializable;
 
 /**
  * @description: 按照颜色搜索图片请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 21:43
  **/
 @Data

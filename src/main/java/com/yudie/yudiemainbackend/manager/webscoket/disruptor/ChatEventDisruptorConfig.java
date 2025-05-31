@@ -9,7 +9,7 @@ import javax.annotation.Resource;
 
 /**
  * @description: 聊天事件 Disruptor 配置
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 14:59
  **/
 @Configuration

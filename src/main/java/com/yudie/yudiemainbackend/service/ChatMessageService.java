@@ -8,7 +8,7 @@ import com.yudie.yudiemainbackend.model.entity.User;
 import java.util.List;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【chat_message(聊天消息表)】的数据库操作Service
 * @createDate 2025-05-31 11:05:05
 */

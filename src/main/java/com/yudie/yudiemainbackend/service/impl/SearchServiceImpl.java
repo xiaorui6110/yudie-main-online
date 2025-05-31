@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【hot_search(热门搜索记录表)】的数据库操作Service实现
 * @createDate 2025-05-30 09:53:07
 */

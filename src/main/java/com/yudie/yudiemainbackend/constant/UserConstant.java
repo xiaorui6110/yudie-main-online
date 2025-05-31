@@ -2,7 +2,7 @@ package com.yudie.yudiemainbackend.constant;
 
 /**
  * @description: 用户常量
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-22 10:40
  **/
 public interface UserConstant {

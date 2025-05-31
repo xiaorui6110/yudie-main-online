@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * @description: 健康检查
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-20 15:04
  **/
 @RestController

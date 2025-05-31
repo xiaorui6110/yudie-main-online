@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 /**
  * @description: 热门搜索缓存预热任务
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 16:17
  **/
 @Slf4j

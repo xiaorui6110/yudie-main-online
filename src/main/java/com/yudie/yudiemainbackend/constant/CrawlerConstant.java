@@ -2,7 +2,7 @@ package com.yudie.yudiemainbackend.constant;
 
 /**
  * @description:
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 12:21
  **/
 

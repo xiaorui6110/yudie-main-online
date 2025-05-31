@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 /**
  * @description: 自定义权限注解
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-22 15:09
  **/
 @Target(ElementType.METHOD)

@@ -2,7 +2,7 @@ package com.yudie.yudiemainbackend.manager.auth.model;
 
 /**
  * @description: 空间成员权限常量
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 14:45
  **/
 public interface SpaceUserPermissionConstant {

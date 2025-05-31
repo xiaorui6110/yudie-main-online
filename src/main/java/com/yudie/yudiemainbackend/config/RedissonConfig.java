@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * @description: Redisson 配置
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 14:36
  **/
 @Configuration

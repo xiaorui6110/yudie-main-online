@@ -10,7 +10,7 @@ import lombok.Data;
 
 /**
  * 用户关注表
- * @author lenovo
+ * @author xiaorui
  * @TableName userfollows
  */
 @TableName(value ="userfollows")

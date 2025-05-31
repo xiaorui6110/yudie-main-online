@@ -8,7 +8,7 @@ import lombok.Data;
 
 /**
  * 用户签到记录表
- * @author siri
+ * @author xiaorui
  * @TableName user_sign_in_record
  */
 @TableName(value ="user_sign_in_record")

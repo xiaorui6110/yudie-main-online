@@ -28,7 +28,7 @@ import java.util.List;
 
 /**
  * @description: 空间成员管理实现类接口
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 11:27
  **/
 @Slf4j

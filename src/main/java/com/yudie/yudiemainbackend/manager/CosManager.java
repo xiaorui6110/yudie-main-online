@@ -17,7 +17,7 @@ import java.util.List;
 
 /**
  * @description: COS 通用方法类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 14:12
  **/
 @Component

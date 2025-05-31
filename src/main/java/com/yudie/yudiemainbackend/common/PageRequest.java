@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * @description: 通用的分页请求类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-20 16:59
  **/
 @Data

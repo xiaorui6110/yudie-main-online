@@ -5,7 +5,7 @@ import lombok.Getter;
 
 /**
  * @description: 图片审核状态枚举类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-24 14:46
  **/
 @Getter

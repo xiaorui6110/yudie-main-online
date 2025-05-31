@@ -2,7 +2,7 @@ package com.yudie.yudiemainbackend.exception;
 
 /**
  * @description: 异常处理工具类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-20 16:39
  **/
 

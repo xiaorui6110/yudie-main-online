@@ -11,7 +11,7 @@ import javax.annotation.PostConstruct;
 
 /**
  * @description: Sa-Token 开启注解和配置
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 14:34
  * 参考官方文档：<a href="https://sa-token.cc/doc.html#/use/at-check">...</a>
  *             和 <a href="https://sa-token.cc/doc.html#/up/many-account">...</a>

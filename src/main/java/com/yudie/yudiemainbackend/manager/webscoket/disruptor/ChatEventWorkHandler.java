@@ -11,7 +11,7 @@ import javax.annotation.Resource;
 
 /**
  * @description: 聊天事件处理器
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 15:00
  **/
 @Slf4j

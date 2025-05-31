@@ -6,7 +6,7 @@ import org.springframework.stereotype.Repository;
 
 /**
  * @description: ES 文章数据访问层
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-30 20:14
  **/
 @Repository

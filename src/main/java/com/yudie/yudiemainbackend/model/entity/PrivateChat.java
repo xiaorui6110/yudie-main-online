@@ -10,7 +10,7 @@ import lombok.Data;
 
 /**
  * 私聊表
- * @author lenovo
+ * @author xiaorui
  * @TableName private_chat
  */
 @TableName(value ="private_chat")

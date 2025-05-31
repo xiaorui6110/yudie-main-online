@@ -6,7 +6,7 @@ import java.io.Serializable;
 
 /**
  * @description: 审核空间成员请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-27 15:53
  **/
 @Data

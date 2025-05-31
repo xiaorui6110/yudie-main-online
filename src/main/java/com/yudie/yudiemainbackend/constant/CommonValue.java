@@ -2,7 +2,7 @@ package com.yudie.yudiemainbackend.constant;
 
 /**
  * @description: 系统常量
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-21 19:59
  **/
 

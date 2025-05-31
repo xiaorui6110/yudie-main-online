@@ -9,7 +9,7 @@ import lombok.Data;
 
 /**
  * 聊天消息表
- * @author lenovo
+ * @author xiaorui
  * @TableName chat_message
  */
 @TableName(value ="chat_message")

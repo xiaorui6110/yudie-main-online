@@ -24,7 +24,7 @@ import java.util.List;
 
 /**
  * @description: 空间成员权限管理
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 14:46
  **/
 @Component

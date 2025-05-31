@@ -6,7 +6,7 @@ import java.io.Serializable;
 
 /**
  * @description: 关注人/粉丝VO
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 20:18
  **/
 @Data

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
  * @description: 全局异常处理器
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-20 16:55
  **/
 @RestControllerAdvice

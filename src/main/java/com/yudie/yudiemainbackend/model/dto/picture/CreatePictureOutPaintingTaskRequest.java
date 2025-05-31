@@ -7,7 +7,7 @@ import java.io.Serializable;
 
 /**
  * @description: 创建扩图任务请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 21:42
  **/
 @Data

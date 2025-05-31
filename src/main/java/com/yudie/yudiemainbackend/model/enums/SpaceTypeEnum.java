@@ -5,7 +5,7 @@ import lombok.Getter;
 
 /**
  * @description: 空间类型枚举类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-26 19:58
  **/
 @Getter

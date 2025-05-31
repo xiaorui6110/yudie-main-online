@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【message(留言板表)】的数据库操作Mapper
 * @createDate 2025-05-31 10:38:11
 * @Entity com.yudie.yudiemainbackend.model.entity.Message

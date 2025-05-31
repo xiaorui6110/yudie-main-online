@@ -8,7 +8,7 @@ import lombok.Data;
 
 /**
  * 热门搜索记录表
- * @author lenovo
+ * @author xiaorui
  * @TableName hot_search
  */
 @TableName(value ="hot_search")

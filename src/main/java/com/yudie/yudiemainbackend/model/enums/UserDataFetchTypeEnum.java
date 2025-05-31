@@ -4,7 +4,7 @@ import lombok.Getter;
 
 /**
  * @description: 用户数据获取类型枚举类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-30 20:12
  **/
 @Getter

@@ -13,7 +13,7 @@ import javax.annotation.Resource;
 
 /**
  * @description: 图片编辑事件生产者
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 19:53
  **/
 @Slf4j

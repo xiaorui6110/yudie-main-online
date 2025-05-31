@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * @description: 帖子数据缓存预热任务
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 16:18
  **/
 @Slf4j

@@ -9,7 +9,7 @@ import javax.annotation.Resource;
 
 /**
  * @description: 图片编辑事件 Disruptor 配置
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 19:52
  **/
 @Configuration

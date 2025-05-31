@@ -6,7 +6,7 @@ import java.io.Serializable;
 
 /**
  * @description: 图片上传请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 17:17
  **/
 @Data

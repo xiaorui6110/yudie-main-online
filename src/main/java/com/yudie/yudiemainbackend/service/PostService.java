@@ -11,7 +11,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【post(论坛帖子表)】的数据库操作Service
 * @createDate 2025-05-29 15:36:22
 */

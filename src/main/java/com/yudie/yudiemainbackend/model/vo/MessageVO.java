@@ -7,7 +7,7 @@ import java.util.Date;
 
 /**
  * @description: 留言板VO
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 10:42
  **/
 @Data

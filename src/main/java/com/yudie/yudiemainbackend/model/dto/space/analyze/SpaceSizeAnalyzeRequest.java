@@ -5,7 +5,7 @@ import lombok.EqualsAndHashCode;
 
 /**
  * @description: 空间图片大小分析请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 08:21
  **/
 @EqualsAndHashCode(callSuper = true)

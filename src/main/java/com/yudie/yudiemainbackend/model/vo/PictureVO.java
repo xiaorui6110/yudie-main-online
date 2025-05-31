@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * @description: 图片视图
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 17:22
  **/
 @Data

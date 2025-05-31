@@ -8,7 +8,7 @@ import java.io.Serializable;
 
 /**
  * @description: 空间用户上传行为分析响应
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 08:24
  **/
 @Data

@@ -10,7 +10,7 @@ import lombok.Data;
 
 /**
  * 空间用户关联表
- * @author lenovo
+ * @author xiaorui
  * @TableName space_user
  */
 @TableName(value ="space_user")

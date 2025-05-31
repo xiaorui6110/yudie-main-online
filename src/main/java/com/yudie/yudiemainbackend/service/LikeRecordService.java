@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【like_record(点赞记录表)】的数据库操作Service
 * @createDate 2025-05-30 14:27:05
 */

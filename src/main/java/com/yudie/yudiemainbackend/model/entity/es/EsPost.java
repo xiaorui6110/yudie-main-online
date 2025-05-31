@@ -10,7 +10,7 @@ import java.util.Date;
 
 /**
  * @description: ES 文章类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-30 20:11
  **/
 @Document(indexName = "post")

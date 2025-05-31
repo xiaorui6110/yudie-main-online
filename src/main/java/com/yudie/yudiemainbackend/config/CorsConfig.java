@@ -6,7 +6,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * @description: 全局跨域配置
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-20 17:04
  **/
 @Configuration

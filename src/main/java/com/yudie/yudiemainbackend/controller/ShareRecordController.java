@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * @description: 分享实现类接口
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-30 16:02
  **/
 @Slf4j

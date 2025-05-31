@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * @description: COS 客户端配置
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 14:05
  **/
 

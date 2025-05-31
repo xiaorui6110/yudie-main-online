@@ -11,7 +11,7 @@ import java.util.List;
 
 /**
  * @description: 评论VO
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-29 22:17
  **/
 @Data

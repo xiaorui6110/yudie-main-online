@@ -9,7 +9,7 @@ import java.util.concurrent.Executor;
 
 /**
  * @description: 异步线程池配置
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-25 14:59
  **/
 @Configuration

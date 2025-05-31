@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * @description: 空间分析接口类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-27 16:46
  **/
 public interface SpaceAnalyzeService extends IService<Space> {

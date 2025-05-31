@@ -8,7 +8,7 @@ import lombok.Data;
 
 /**
  * 留言板表
- * @author lenovo
+ * @author xiaorui
  * @TableName message
  */
 @TableName(value ="message")

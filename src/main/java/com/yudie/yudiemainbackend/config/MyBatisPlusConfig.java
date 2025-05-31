@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * @description: MyBatis Plus 拦截器配置
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-22 20:47
  **/
 @Configuration

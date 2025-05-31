@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * @description: ES 图片数据访问层
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-30 20:14
  **/
 @Repository

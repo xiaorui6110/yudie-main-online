@@ -22,7 +22,7 @@ import java.util.List;
 
 /**
  * @description: 用户签到同步任务
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 16:19
  **/
 @Slf4j

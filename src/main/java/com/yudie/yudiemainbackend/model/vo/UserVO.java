@@ -7,7 +7,7 @@ import java.util.Date;
 
 /**
  * @description: 用户视图（脱敏）
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-22 15:03
  **/
 @Data
@@ -35,7 +35,7 @@ public class UserVO implements Serializable {
     /**
      * 邮箱
      */
-    private String userEmail;
+    private String email;
 
     /**
      * 用户简介

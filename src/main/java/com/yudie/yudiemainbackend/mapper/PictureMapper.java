@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import java.util.List;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【picture(图片表)】的数据库操作Mapper
 * @createDate 2025-05-23 17:07:52
 * @Entity com.yudie.yudiemainbackend.model.entity.Picture

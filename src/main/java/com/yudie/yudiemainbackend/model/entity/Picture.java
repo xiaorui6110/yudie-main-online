@@ -8,7 +8,7 @@ import lombok.Data;
 
 /**
  * 图片表
- * @author siri
+ * @author xiaorui
  * @TableName picture
  */
 @TableName(value ="picture")

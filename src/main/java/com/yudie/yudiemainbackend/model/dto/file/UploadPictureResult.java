@@ -4,7 +4,7 @@ import lombok.Data;
 
 /**
  * @description: 上传图片的结果
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 17:33
  **/
 @Data

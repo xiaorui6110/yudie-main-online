@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @description: 图片编辑 WebSocket 处理器
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 19:49
  **/
 @Component

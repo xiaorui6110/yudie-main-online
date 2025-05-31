@@ -4,7 +4,7 @@ import java.awt.*;
 
 /**
  * @description: 计算颜色相似度工具类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-24 15:59
  **/
 

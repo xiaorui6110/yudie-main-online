@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 
 /**
  * @description: 聊天消息缓存预热任务
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 16:12
  **/
 @Slf4j

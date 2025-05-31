@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * @description: 查询扩图任务响应类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-26 18:46
  **/
 

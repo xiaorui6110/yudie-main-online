@@ -4,7 +4,7 @@ import lombok.Data;
 
 /**
  * @description: 用户添加关注请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 20:13
  **/
 @Data

@@ -4,7 +4,7 @@ import lombok.Getter;
 
 /**
  * @description: 图片编辑消息类型枚举
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 19:44
  **/
 @Getter

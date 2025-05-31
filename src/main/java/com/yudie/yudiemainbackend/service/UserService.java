@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【user(用户)】的数据库操作Service
 * @createDate 2025-05-21 12:32:41
 */
@@ -23,13 +23,13 @@ public interface UserService extends IService<User> {
     /**
      * 用户注册
      *
-     * @param userEmail 用户邮箱
+     * @param email 用户邮箱
      * @param userPassword 用户密码
      * @param checkPassword 校验密码
      * @param code 验证码
      * @return 新用户 id
      */
-    long userRegister(String userEmail, String userPassword, String checkPassword, String code);
+    long userRegister(String email, String userPassword, String checkPassword, String code);
 
     /**
      * 获取加密后的密码
@@ -41,11 +41,11 @@ public interface UserService extends IService<User> {
 
     /**
      * 发送邮箱验证码
-     * @param userEmail 用户邮箱
+     * @param email 用户邮箱
      * @param type 验证码类型
      * @param request HTTP请求
      */
-    void sendEmailCode(String userEmail, String type, HttpServletRequest request);
+    void sendEmailCode(String email, String type, HttpServletRequest request);
 
     /**
      * 用户登录
@@ -158,13 +158,13 @@ public interface UserService extends IService<User> {
 
     /**
      * 重置密码
-     * @param userEmail 用户邮箱
+     * @param email 用户邮箱
      * @param newPassword 新密码
      * @param checkPassword 确认密码
      * @param code 验证码
      * @return 是否重置成功
      */
-    boolean resetPassword(String userEmail, String newPassword, String checkPassword, String code);
+    boolean resetPassword(String email, String newPassword, String checkPassword, String code);
 
     /**
      * 封禁或解禁用户

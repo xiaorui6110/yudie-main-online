@@ -32,7 +32,7 @@ public class User implements Serializable {
     /**
      * 用户邮箱
      */
-    private String userEmail;
+    private String email;
 
     /**
      * 用户昵称

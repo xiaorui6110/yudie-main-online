@@ -7,7 +7,7 @@ import com.yudie.yudiemainbackend.mapper.PostAttachmentMapper;
 import org.springframework.stereotype.Service;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【post_attachment(帖子附件表)】的数据库操作Service实现
 * @createDate 2025-05-29 16:07:01
 */

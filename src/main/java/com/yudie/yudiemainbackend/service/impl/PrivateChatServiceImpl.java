@@ -31,7 +31,7 @@ import java.util.Date;
 import java.util.Set;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【private_chat(私聊表)】的数据库操作Service实现
 * @createDate 2025-05-31 11:31:29
 */

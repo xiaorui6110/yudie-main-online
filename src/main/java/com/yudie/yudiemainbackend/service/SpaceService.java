@@ -12,7 +12,7 @@ import com.yudie.yudiemainbackend.model.vo.SpaceVO;
 import javax.servlet.http.HttpServletRequest;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【space(空间表)】的数据库操作Service
 * @createDate 2025-05-26 19:52:02
 */

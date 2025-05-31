@@ -10,7 +10,7 @@ import lombok.Data;
 
 /**
  * 点赞记录表
- * @author lenovo
+ * @author xiaorui
  * @TableName like_record
  */
 @TableName(value ="like_record")

@@ -4,7 +4,7 @@ import lombok.Getter;
 
 /**
  * @description: 错误码枚举类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-20 16:26
  **/
 @Getter

@@ -18,7 +18,7 @@ import java.util.Map;
 
 /**
  * @description: WebSocket 拦截器，建立连接前要先校验
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-28 19:46
  **/
 @Slf4j

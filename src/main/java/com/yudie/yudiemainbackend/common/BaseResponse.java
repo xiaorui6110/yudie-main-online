@@ -7,7 +7,7 @@ import java.io.Serializable;
 
 /**
  * @description: 全局响应封装类
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-20 16:43
  **/
 @Data

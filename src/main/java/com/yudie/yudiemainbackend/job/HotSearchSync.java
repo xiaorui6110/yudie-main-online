@@ -2,7 +2,7 @@ package com.yudie.yudiemainbackend.job;
 
 /**
  * @description: 热门搜索同步接口
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-31 16:16
  **/
 public interface HotSearchSync {

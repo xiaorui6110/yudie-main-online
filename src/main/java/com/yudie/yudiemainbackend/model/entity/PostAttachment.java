@@ -8,7 +8,7 @@ import lombok.Data;
 
 /**
  * 帖子附件表
- * @author lenovo
+ * @author xiaorui
  * @TableName post_attachment
  */
 @TableName(value ="post_attachment")

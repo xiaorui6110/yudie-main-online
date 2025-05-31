@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【tag(标签表)】的数据库操作Mapper
 * @createDate 2025-05-23 17:11:49
 * @Entity com.yudie.yudiemainbackend.model.entity.Tag

@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * @description: 图片查询请求
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-23 21:41
  **/
 @EqualsAndHashCode(callSuper = true)

@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
-* @author lenovo
+* @author xiaorui
 * @description 针对表【category(分类表)】的数据库操作Service实现
 * @createDate 2025-05-23 17:09:48
 */

@@ -8,7 +8,7 @@ import lombok.Data;
 /**
  * SpaceUserAuthContext
  * 表示用户在特定空间内的授权上下文，包括关联的图片、空间和用户信息。
- * @author lenovo
+ * @author xiaorui
  */
 @Data
 public class SpaceUserAuthContext {

@@ -19,7 +19,7 @@ import javax.servlet.http.HttpServletRequest;
 
 /**
  * @description: 权限校验 AOP
- * @author: siri
+ * @author: xiaorui
  * @date: 2025-05-22 15:15
  **/
 @Aspect
