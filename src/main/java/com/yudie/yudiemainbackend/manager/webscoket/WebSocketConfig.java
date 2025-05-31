@@ -22,8 +22,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Resource
     private WsHandshakeInterceptor wsHandshakeInterceptor;
 
-    //@Resource
-    //private ChatWebSocketServer chatWebSocketServer;
+    @Resource
+    private ChatWebSocketServer chatWebSocketServer;
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
@@ -31,9 +31,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 .addInterceptors(wsHandshakeInterceptor)
                 .setAllowedOrigins("*");
 
-        // TODO 添加聊天WebSocket配置
-        //registry.addHandler(chatWebSocketServer, "/ws/chat")
-        //        .addInterceptors(wsHandshakeInterceptor)
-        //        .setAllowedOrigins("*");
+        // 添加聊天WebSocket配置
+        registry.addHandler(chatWebSocketServer, "/ws/chat")
+                .addInterceptors(wsHandshakeInterceptor)
+                .setAllowedOrigins("*");
     }
 }

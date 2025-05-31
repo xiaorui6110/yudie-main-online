@@ -17,12 +17,14 @@ public class CrawlerConstant {
      * 封禁计数
      */
     public static final int BAN_COUNT= 50;
+
     /**
      * 封禁角色
      */
     public static final String BAN_ROLE = "ban";
+
     /**
-     * 封禁时间
+     * 过期时间
      */
     public static final int EXPIRE_TIME = 120;
 

@@ -573,7 +573,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         if (ObjUtil.isEmpty(div)) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "获取元素失败");
         }
-        Elements imgElementList = Objects.requireNonNull(div).select("img.mimg");
+        Elements imgElementList = div.select("img.mimg");
         // 4. 上传图片
         // 遍历元素，依次处理上传图片
         int uploadCount = 0;
@@ -1061,7 +1061,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             List<String> redisViewCounts = stringRedisTemplate.opsForValue().multiGet(viewCountKeys);
             for (int i = 0; i < pictureList.size(); i++) {
                 Picture picture = pictureList.get(i);
-                String redisCount = Objects.requireNonNull(redisViewCounts).get(i);
+                String redisCount = redisViewCounts.get(i);
                 long baseCount = picture.getViewCount() != null ? picture.getViewCount() : 0L;
                 long increment = redisCount != null ? Long.parseLong(redisCount) : 0L;
                 viewCountMap.put(picture.getId(), baseCount + increment);

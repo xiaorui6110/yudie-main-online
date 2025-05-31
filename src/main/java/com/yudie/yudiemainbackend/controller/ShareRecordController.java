@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * @description:
+ * @description: 分享实现类接口
  * @author: siri
  * @date: 2025-05-30 16:02
  **/

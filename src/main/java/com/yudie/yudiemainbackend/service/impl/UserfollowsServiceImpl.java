@@ -14,9 +14,11 @@ import com.yudie.yudiemainbackend.model.entity.User;
 import com.yudie.yudiemainbackend.model.entity.Userfollows;
 import com.yudie.yudiemainbackend.model.vo.FollowersAndFansVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
+import com.yudie.yudiemainbackend.service.PrivateChatService;
 import com.yudie.yudiemainbackend.service.UserService;
 import com.yudie.yudiemainbackend.service.UserfollowsService;
 import com.yudie.yudiemainbackend.mapper.UserfollowsMapper;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +41,11 @@ public class UserfollowsServiceImpl extends ServiceImpl<UserfollowsMapper, Userf
 
     @Resource
     private UserService userService;
+
+    @Lazy
+    @Resource
+    private PrivateChatService privateChatService;
+
 
     /**
      * 添加关注（0-取消关注操作，1-关注操作）
@@ -90,9 +97,8 @@ public class UserfollowsServiceImpl extends ServiceImpl<UserfollowsMapper, Userf
                         .eq("followStatus", 1)
                         .eq("isDelete", 0)
                         .update();
-
-                // TODo 更新私聊类型为好友
-
+                // 更新私聊类型为好友
+                privateChatService.updateChatType(followerId, followingId, true);
             }
         } else {
             // 4. 取消关注
@@ -107,8 +113,8 @@ public class UserfollowsServiceImpl extends ServiceImpl<UserfollowsMapper, Userf
                         .eq("followStatus", 1)
                         .eq("isDelete", 0)
                         .update();
-
-                // TODO 更新私聊类型为普通私信
+                // 更新私聊类型为普通私信
+                privateChatService.updateChatType(followerId, followingId, false);
 
             }
         }

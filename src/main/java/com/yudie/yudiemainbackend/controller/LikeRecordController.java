@@ -19,7 +19,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**
- * @description:
+ * @description: 点赞实现类接口
  * @author: siri
  * @date: 2025-05-30 15:35
  **/

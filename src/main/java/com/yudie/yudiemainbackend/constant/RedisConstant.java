@@ -71,11 +71,11 @@ public interface RedisConstant {
     /**
      * 获取用户签到记录的 Redis Key
      * @param year 年份
-     * @param id 用户 id
+     * @param userId 用户 id
      * @return 拼接好的 Redis Key
      */
-    static String getUserSignInRedisKey(int year, long id) {
-        return String.format("%s:%s:%S", USER_SIGN_IN_REDIS_KEY_PREFIX, year, id);
+    static String getUserSignInRedisKey(int year, long userId) {
+        return String.format("%s:%s:%S", USER_SIGN_IN_REDIS_KEY_PREFIX, year, userId);
     }
 
 

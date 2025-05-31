@@ -381,5 +381,84 @@ CREATE INDEX idx_userId_isRead
 CREATE INDEX idx_userId_targetType
     ON share_record (userId, targetType);
 
+-- 留言板表
+CREATE TABLE message
+(
+    id         bigint AUTO_INCREMENT COMMENT '主键ID'
+        PRIMARY KEY,
+    content    text                                 NOT NULL COMMENT '留言内容',
+    createTime datetime   DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    updateTime datetime   DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    isDelete   tinyint(1) DEFAULT 0                 NULL COMMENT '是否删除(0-未删除 1-已删除)',
+    ip         varchar(50)                          NULL COMMENT 'IP地址'
+)
+    COMMENT '留言板表' COLLATE = utf8mb4_unicode_ci;
 
+CREATE INDEX idx_createTime
+    ON message (createTime);
+
+-- 聊天消息表
+CREATE TABLE chat_message
+(
+    id            bigint AUTO_INCREMENT COMMENT '主键ID'
+        PRIMARY KEY,
+    senderId      bigint                             NOT NULL COMMENT '发送者id',
+    receiverId    bigint                             NULL COMMENT '接收者id',
+    pictureId     bigint                             NULL COMMENT '图片id',
+    content       text                               NOT NULL COMMENT '消息内容',
+    type          tinyint  DEFAULT 1                 NOT NULL COMMENT '消息类型 1-私聊 2-图片聊天室',
+    status        tinyint  DEFAULT 0                 NOT NULL COMMENT '状态 0-未读 1-已读',
+    replyId       bigint                             NULL COMMENT '回复的消息id',
+    rootId        bigint                             NULL COMMENT '会话根消息id',
+    createTime    datetime DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    updateTime    datetime DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    isDelete      tinyint  DEFAULT 0                 NOT NULL COMMENT '是否删除',
+    spaceId       bigint                             NULL COMMENT '空间id',
+    privateChatId bigint                             NULL COMMENT '私聊id'
+)
+    COMMENT '聊天消息表' COLLATE = utf8mb4_unicode_ci;
+
+CREATE INDEX idx_picture
+    ON chat_message (pictureId);
+
+CREATE INDEX idx_private_chat
+    ON chat_message (privateChatId);
+
+CREATE INDEX idx_reply
+    ON chat_message (replyId);
+
+CREATE INDEX idx_root
+    ON chat_message (rootId);
+
+CREATE INDEX idx_sender_receiver
+    ON chat_message (senderId, receiverId);
+
+CREATE INDEX idx_space
+    ON chat_message (spaceId);
+
+-- 私聊表
+CREATE TABLE private_chat
+(
+    id                    bigint AUTO_INCREMENT COMMENT '主键ID'
+        PRIMARY KEY,
+    userId                bigint                             NOT NULL COMMENT '用户id',
+    targetUserId          bigint                             NOT NULL COMMENT '目标用户id',
+    lastMessage           text                               NULL COMMENT '最后一条消息内容',
+    lastMessageTime       datetime                           NULL COMMENT '最后一条消息时间',
+    userUnreadCount       int      DEFAULT 0                 NULL COMMENT '用户未读消息数',
+    targetUserUnreadCount int      DEFAULT 0                 NULL COMMENT '目标用户未读消息数',
+    userChatName          varchar(50)                        NULL COMMENT '用户自定义的私聊名称',
+    targetUserChatName    varchar(50)                        NULL COMMENT '目标用户自定义的私聊名称',
+    chatType              tinyint  DEFAULT 0                 NOT NULL COMMENT '聊天类型：0-私信 1-好友(双向关注)',
+    createTime            datetime DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    updateTime            datetime DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    isDelete              tinyint  DEFAULT 0                 NOT NULL COMMENT '是否删除'
+)
+    COMMENT '私聊表' COLLATE = utf8mb4_unicode_ci;
+
+CREATE INDEX idx_chat_type
+    ON private_chat (chatType);
+
+CREATE INDEX idx_user_target
+    ON private_chat (userId, targetUserId);
 

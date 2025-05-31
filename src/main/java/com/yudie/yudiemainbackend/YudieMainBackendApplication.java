@@ -11,10 +11,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * @author siri
  */
 @EnableAsync
+@EnableScheduling
+@EnableAspectJAutoProxy(exposeProxy = true)
 @SpringBootApplication
 @MapperScan("com.yudie.yudiemainbackend.mapper")
-@EnableAspectJAutoProxy(exposeProxy = true)
-@EnableScheduling
 public class YudieMainBackendApplication {
 
     public static void main(String[] args) {

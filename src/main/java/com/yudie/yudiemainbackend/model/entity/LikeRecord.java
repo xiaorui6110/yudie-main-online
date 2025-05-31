@@ -43,7 +43,7 @@ public class LikeRecord implements Serializable {
     private Long targetUserId;
 
     /**
-     * 是否点赞（注意 MySQL 中 tinyint(1) 类型会转换为 Boolean 类型）
+     * 是否点赞（注意 MySQL 中 tinyint(1) 类型转换为 Boolean 类型）
      */
     private Boolean isLiked;
 

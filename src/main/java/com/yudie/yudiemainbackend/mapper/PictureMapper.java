@@ -13,10 +13,22 @@ import java.util.List;
 */
 public interface PictureMapper extends BaseMapper<Picture> {
 
+    /**
+     * 获取图片-年
+     * @return List<Picture>
+     */
     List<Picture> getTop100PictureByYear();
 
+    /**
+     * 获取图片-月
+     * @return List<Picture>
+     */
     List<Picture> getTop100PictureByMonth();
 
+    /**
+     * 获取图片-周
+     * @return List<Picture>
+     */
     List<Picture> getTop100PictureByWeek();
 }
 

@@ -38,8 +38,8 @@ public class FileController {
      * @param multipartFile 文件
      * @return BaseResponse<String>
      */
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @PostMapping("/test/upload")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<String> testUploadFile(@RequestPart("file") MultipartFile multipartFile) {
         // 文件目录
         String filename = multipartFile.getOriginalFilename();
@@ -72,8 +72,8 @@ public class FileController {
      * @param filepath 文件路径
      * @param response 响应对象
      */
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @GetMapping("/test/download/")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public void testDownloadFile(String filepath, HttpServletResponse response) throws IOException {
         COSObjectInputStream cosObjectInput = null;
         try {

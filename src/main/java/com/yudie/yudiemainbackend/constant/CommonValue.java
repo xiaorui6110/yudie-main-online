@@ -14,5 +14,4 @@ public class CommonValue {
 
     public static final String DEFAULT_SALT = "yudie";
 
-
 }

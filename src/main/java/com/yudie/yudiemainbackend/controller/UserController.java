@@ -396,7 +396,7 @@ public class UserController {
      * @return 验证码
      */
     @GetMapping("/getcode")
-    public BaseResponse<Map<String, String>> getCaptcha() {
+    public BaseResponse<Map<String, String>> getCode() {
         Map<String, String> captchaData = userService.getCaptcha();
         return ResultUtils.success(captchaData);
     }
