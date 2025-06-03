@@ -90,13 +90,13 @@ public class PrivateChatController {
     /**
      * 创建或更新私聊
      * @param targetUserId 目标用户ID
-     * @param content 内容
+     * @param lastMessage 内容
      * @param request 请求
      * @return 私聊
      */
     @PostMapping("/create_update")
     public BaseResponse<PrivateChat> createOrUpdatePrivateChat(@RequestParam Long targetUserId,
-                                                               @RequestParam(required = false) String content,
+                                                               @RequestParam(required = false) String lastMessage,
                                                                HttpServletRequest request) {
         ThrowUtils.throwIf(targetUserId == null || targetUserId <= 0, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
@@ -108,7 +108,7 @@ public class PrivateChatController {
         User targetUser = userService.getById(targetUserId);
         ThrowUtils.throwIf(targetUser == null, ErrorCode.NOT_FOUND_ERROR, "目标用户不存在");
 
-        PrivateChat privateChat = privateChatService.createOrUpdatePrivateChat(loginUser.getId(), targetUserId, content);
+        PrivateChat privateChat = privateChatService.createOrUpdatePrivateChat(loginUser.getId(), targetUserId, lastMessage);
         return ResultUtils.success(privateChat);
     }
 

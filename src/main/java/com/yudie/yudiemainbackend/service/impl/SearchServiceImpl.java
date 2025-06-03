@@ -1,48 +1,32 @@
 package com.yudie.yudiemainbackend.service.impl;
 
-import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.yudie.yudiemainbackend.esdao.EsSearchKeywordDao;
+import org.springframework.data.domain.Page;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.model.dto.search.SearchRequest;
 import com.yudie.yudiemainbackend.model.entity.*;
-import com.yudie.yudiemainbackend.model.entity.es.EsSearchKeyword;
-import com.yudie.yudiemainbackend.model.enums.SpaceLevelEnum;
 import com.yudie.yudiemainbackend.model.vo.PictureVO;
 import com.yudie.yudiemainbackend.model.vo.SpaceVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
 import com.yudie.yudiemainbackend.service.*;
 import com.yudie.yudiemainbackend.mapper.HotSearchMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.script.Script;
-import org.elasticsearch.script.ScriptType;
-import org.elasticsearch.search.sort.ScriptSortBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
-import org.redisson.api.SortOrder;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.search.sort.SortOrder.DESC;
 
 /**
 * @author xiaorui
@@ -58,14 +42,6 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
 
     private static final long CACHE_EXPIRE_TIME = 15 * 60;
 
-    private static final String PICTURE_INDEX = "picture";
-
-    private static final String USER_INDEX = "user";
-
-    private static final String POST_INDEX = "post";
-
-    private static final String SPACE_INDEX = "space";
-
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
@@ -73,22 +49,16 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
     private HotSearchMapper hotSearchMapper;
 
     @Resource
-    private ElasticsearchRestTemplate elasticsearchRestTemplate;
+    private PictureService pictureService;
+
+    @Resource
+    private PostService postService;
 
     @Resource
     private UserService userService;
 
     @Resource
-    private PostAttachmentService postAttachmentService;
-
-    @Resource
     private SpaceService spaceService;
-
-    @Resource
-    private SpaceUserService spaceUserService;
-
-    @Resource
-    private EsSearchKeywordDao esSearchKeywordDao;
 
     /**
      * 获取热门搜索（优先从Redis获取，其次MySQL，最后ES）
@@ -114,16 +84,6 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
             if (!hotSearchList.isEmpty()) {
                 resultList = hotSearchList.stream()
                         .map(HotSearch::getKeyword)
-                        .collect(Collectors.toList());
-            }
-            else {
-                // 3. MySQL 没有，从 ES 获取
-                List<EsSearchKeyword> keywords = esSearchKeywordDao
-                        .findByTypeAndUpdateTimeAfterOrderByCountDesc(type, startTime);
-
-                resultList = keywords.stream()
-                        .limit(size)
-                        .map(EsSearchKeyword::getKeyword)
                         .collect(Collectors.toList());
             }
             // 如果有结果，更新缓存
@@ -168,12 +128,13 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
     }
 
     /**
-     *  执行搜索
+     * 执行搜索
+     *
      * @param searchRequest 搜索请求
      * @return 搜索结果
      */
     @Override
-    public Page<?> doSearch(SearchRequest searchRequest) {
+    public Page<?> doSearch(SearchRequest searchRequest, HttpServletRequest request) {
         String searchText = searchRequest.getSearchText();
         String type = searchRequest.getType();
         // 校验参数
@@ -185,13 +146,13 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
         // 执行搜索
         switch (type) {
             case "picture":
-                return searchPicture(searchRequest);
+                return searchPicture(searchRequest, request);
             case "user":
-                return searchUser(searchRequest);
+                return searchUser(searchRequest, request);
             case "post":
-                return searchPost(searchRequest);
+                return searchPost(searchRequest, request);
             case "space":
-                return searchSpace(searchRequest);
+                return searchSpace(searchRequest, request);
             default:
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "不支持的搜索类型");
         }
@@ -204,23 +165,28 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
      */
     private void recordSearchKeyword(String searchText, String type) {
         try {
-            // 查找是否存在该关键词记录
-            EsSearchKeyword keyword = esSearchKeywordDao.findByTypeAndKeyword(type, searchText);
-
-            if (keyword != null) {
-                // 更新搜索次数
-                keyword.setCount(keyword.getCount() + 1);
-                keyword.setUpdateTime(new Date());
+            // 查找是否存在该搜索关键词记录
+            HotSearch searchKeyword = hotSearchMapper.selectOne(
+                    new QueryWrapper<HotSearch>()
+                            .eq("keyword", searchText)
+                            .eq("type", type)
+            );
+            if (searchKeyword != null) {
+                // 更新搜索关键词记录
+                searchKeyword.setCount(searchKeyword.getCount() + 1);
+                searchKeyword.setLastUpdateTime(new Date());
             } else {
-                // 新增关键词记录
-                keyword = new EsSearchKeyword();
-                keyword.setKeyword(searchText);
-                keyword.setType(type);
-                keyword.setCount(1L);
-                keyword.setCreateTime(new Date());
-                keyword.setUpdateTime(new Date());
+                // 新增搜索关键词记录
+                searchKeyword = new HotSearch();
+                searchKeyword.setKeyword(searchText);
+                searchKeyword.setType(type);
+                searchKeyword.setCount(1L);
+                searchKeyword.setLastUpdateTime(new Date());
+                searchKeyword.setCreateTime(new Date());
+                searchKeyword.setUpdateTime(new Date());
             }
-            esSearchKeywordDao.save(keyword);
+            // 保存搜索关键词记录
+            hotSearchMapper.insertOrUpdate(searchKeyword);
         } catch (Exception e) {
             log.error("记录搜索关键词失败", e);
         }
@@ -228,343 +194,120 @@ public class SearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
 
     /**
      * 搜索图片
+     * @param searchRequest 搜索请求
      */
-    private Page<PictureVO> searchPicture(SearchRequest searchRequest) {
+    private Page<PictureVO> searchPicture(SearchRequest searchRequest, HttpServletRequest request) {
         String searchText = searchRequest.getSearchText();
-        Integer current = searchRequest.getCurrent();
-        Integer pageSize = searchRequest.getPageSize();
-        // 构建布尔查询
-        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
-                // 搜索条件
-                .should(QueryBuilders.matchQuery("name", searchText))
-                .should(QueryBuilders.matchQuery("introduction", searchText))
-                .should(QueryBuilders.matchQuery("tags", searchText));
-        // 尝试将搜索文本转换为图片ID
-        try {
-            Long pictureId = Long.parseLong(searchText);
-            boolQueryBuilder.should(QueryBuilders.termQuery("id", pictureId));
-        } catch (NumberFormatException ignored) {
+        int current = searchRequest.getCurrent();
+        int size = searchRequest.getPageSize();
+        // 获取搜索图片 id 列表
+        List<Long> pictureIds = this.baseMapper.searchPicture(searchText);
+        if (pictureIds == null || pictureIds.isEmpty()) {
+           return new PageImpl<>(Collections.emptyList());
         }
-        boolQueryBuilder.minimumShouldMatch(1)
-                // 必要条件：已通过审核、未删除、公共图库
-                .must(QueryBuilders.termQuery("reviewStatus", 1))
-                .must(QueryBuilders.termQuery("isDelete", 0))
-                .must(QueryBuilders.boolQuery()
-                        .should(QueryBuilders.boolQuery()
-                                .mustNot(QueryBuilders.existsQuery("spaceId")))
-                        .should(QueryBuilders.termQuery("spaceId", 0))
-                );
-        // 构建搜索查询
-        NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-                .withQuery(boolQueryBuilder)
-                .withPageable(PageRequest.of(current - 1, pageSize))
-                .withSort(SortBuilders.scoreSort().order(DESC))
-                .withSort(SortBuilders.fieldSort("createTime").order(DESC))
-                .build();
-        // 执行搜索
-        SearchHits<Picture> searchHits = elasticsearchRestTemplate.search(
-                searchQuery,
-                Picture.class,
-                IndexCoordinates.of(PICTURE_INDEX)
-        );
-        // 获取搜索结果并转换为PictureVO
-        List<PictureVO> pictureVOList = searchHits.getSearchHits().stream()
-                .map(hit -> hit.getContent())
-                .map(picture -> {
-                    PictureVO pictureVO = PictureVO.objToVo(picture);
-                    // 获取并设置脱敏后的用户信息
-                    User user = userService.getById(picture.getUserId());
-                    if (user != null) {
-                        pictureVO.setUser(userService.getUserVO(user));
-                    }
-                    return pictureVO;
-                })
+        // 计算分页参数
+        int total = pictureIds.size();
+        // 转换为0-based索引
+        int start = (current - 1) * size;
+        int end = Math.min(start + size, total);
+        // 获取当前页的 id 子集
+        List<Long> pageIds = pictureIds.subList(start, end);
+        // 将图片 id 列表转换为图片对象列表
+        List<PictureVO> pictureVOList = pageIds.stream()
+                .map(id -> pictureService.getPictureVOById(id, request))
                 .collect(Collectors.toList());
-
-        return new org.springframework.data.domain.PageImpl<>(
-                pictureVOList,
-                PageRequest.of(current - 1, pageSize),
-                searchHits.getTotalHits()
-        );
+        // 创建Spring Data分页对象
+        Pageable pageable = PageRequest.of(current - 1, size);
+        return new PageImpl<>(pictureVOList, pageable, total);
     }
 
     /**
      * 搜索用户
+     * @param searchRequest 搜索请求
      */
-    private Page<UserVO> searchUser(SearchRequest searchRequest) {
+    private Page<UserVO> searchUser(SearchRequest searchRequest, HttpServletRequest request) {
         String searchText = searchRequest.getSearchText();
-        Integer current = searchRequest.getCurrent();
-        Integer pageSize = searchRequest.getPageSize();
-        // 构建布尔查询
-        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
-                .should(QueryBuilders.matchQuery("userName", searchText))
-                .should(QueryBuilders.matchQuery("userAccount", searchText))
-                .should(QueryBuilders.matchQuery("userProfile", searchText));
-        // 尝试将搜索文本转换为用户ID
-        try {
-            Long userId = Long.parseLong(searchText);
-            boolQueryBuilder.should(QueryBuilders.termQuery("id", userId));
-        } catch (NumberFormatException ignored) {
+        int current = searchRequest.getCurrent();
+        int size = searchRequest.getPageSize();
+        // 获取搜索用户 id 列表
+        List<Long> userIds = this.baseMapper.searchUser(searchText);
+        if (userIds == null || userIds.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList());
         }
-
-        boolQueryBuilder.minimumShouldMatch(1)
-                .must(QueryBuilders.termQuery("isDelete", 0));
-
-        // 构建搜索查询
-        NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-                .withQuery(boolQueryBuilder)
-                .withPageable(PageRequest.of(current - 1, pageSize))
-                .withSort(SortBuilders.scoreSort().order(DESC))
-                .withSort(SortBuilders.fieldSort("createTime").order(DESC))
-                .build();
-        // 执行搜索
-        SearchHits<User> searchHits = elasticsearchRestTemplate.search(
-                searchQuery,
-                User.class,
-                IndexCoordinates.of(USER_INDEX)
-        );
-        // 获取搜索结果并转换为UserVO
-        List<UserVO> userVOList = searchHits.getSearchHits().stream()
-                .map(SearchHit::getContent)
-                .map(userService::getUserVO)
+        // 计算分页参数
+        int total = userIds.size();
+        // 转换为0-based索引
+        int start = (current - 1) * size;
+        int end = Math.min(start + size, total);
+        // 获取当前页的 id 子集
+        List<Long> pageIds = userIds.subList(start, end);
+        // 将用户 id 列表转换为用户对象列表
+        List<UserVO> userVOList = pageIds.stream()
+                .map(id -> userService.getUserVOById(id))
                 .collect(Collectors.toList());
-        return new org.springframework.data.domain.PageImpl<>(
-                userVOList,
-                PageRequest.of(current - 1, pageSize),
-                searchHits.getTotalHits()
-        );
+        // 创建Spring Data分页对象
+        Pageable pageable = PageRequest.of(current - 1, size);
+        return new PageImpl<>(userVOList, pageable, total);
     }
 
     /**
      * 搜索帖子
+     * @param searchRequest 搜索请求
      */
-    private Page<Post> searchPost(SearchRequest searchRequest) {
+    private Page<Post> searchPost(SearchRequest searchRequest, HttpServletRequest request) {
         String searchText = searchRequest.getSearchText();
-        Integer current = searchRequest.getCurrent();
-        Integer pageSize = searchRequest.getPageSize();
-
-        // 构建布尔查询
-        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
-                .should(QueryBuilders.matchQuery("title", searchText))
-                .should(QueryBuilders.matchQuery("content", searchText))
-                .should(QueryBuilders.matchQuery("tags", searchText))
-                .should(QueryBuilders.matchQuery("category", searchText));
-
-        // 尝试将搜索文本转换为帖子ID
-        try {
-            Long postId = Long.parseLong(searchText);
-            boolQueryBuilder.should(QueryBuilders.termQuery("id", postId));
-        } catch (NumberFormatException ignored) {
+        int current = searchRequest.getCurrent();
+        int size = searchRequest.getPageSize();
+        // 获取搜索帖子 id 列表
+        List<Long> postIds = this.baseMapper.searchPost(searchText);
+        if (postIds == null || postIds.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList());
         }
-
-        boolQueryBuilder.minimumShouldMatch(1)
-                .must(QueryBuilders.termQuery("isDelete", 0))
-                // 只搜索已发布的帖子
-                .must(QueryBuilders.termQuery("status", 1));
-
-        // 修改排序逻辑，加入分享数权重
-        NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-                .withQuery(boolQueryBuilder)
-                .withPageable(PageRequest.of(current - 1, pageSize))
-                .withSort(SortBuilders.scoreSort().order(DESC))
-                // 使用加权排序：点赞数 40%，评论数 30%，浏览量 20%，分享数 10%
-                .withSort(SortBuilders.scriptSort(
-                        new Script(
-                                ScriptType.INLINE,
-                                "painless",
-                                "doc['likeCount'].value * 0.4 + doc['commentCount'].value * 0.3 + " +
-                                        "doc['viewCount'].value * 0.2 + doc['shareCount'].value * 0.1",
-                                new HashMap<>()
-                        ),
-                        ScriptSortBuilder.ScriptSortType.NUMBER
-                ).order(DESC))
-                .withSort(SortBuilders.fieldSort("createTime").order(DESC))
-                .build();
-
-        // 执行搜索
-        SearchHits<Post> searchHits = elasticsearchRestTemplate.search(
-                searchQuery,
-                Post.class,
-                IndexCoordinates.of(POST_INDEX)
-        );
-
-        // 获取搜索结果
-        List<Post> postList = searchHits.getSearchHits().stream()
-                .map(SearchHit::getContent)
+        // 计算分页参数
+        int total = postIds.size();
+        // 转换为0-based索引
+        int start = (current - 1) * size;
+        int end = Math.min(start + size, total);
+        // 获取当前页的 id 子集
+        List<Long> pageIds = postIds.subList(start, end);
+        // 将帖子 id 列表转换为帖子对象列表
+        List<Post> postList = pageIds.stream()
+                .map(id -> postService.getById(id))
                 .collect(Collectors.toList());
-
-        // 批量获取帖子的附件
-        if (!postList.isEmpty()) {
-            // 获取所有帖子ID
-            List<Long> postIds = postList.stream()
-                    .map(Post::getId)
-                    .collect(Collectors.toList());
-
-            // 批量查询附件
-            List<PostAttachment> attachments = postAttachmentService.list(
-                    new QueryWrapper<PostAttachment>()
-                            .in("postId", postIds)
-                            // 只获取图片类型的附件
-                            .eq("type", 1)
-                            // 按位置排序
-                            .orderByAsc("position")
-            );
-
-            // 构建帖子ID到附件列表的映射
-            Map<Long, List<PostAttachment>> postAttachmentMap = attachments.stream()
-                    .collect(Collectors.groupingBy(PostAttachment::getPostId));
-
-            // 填充帖子信息
-            postList.forEach(post -> {
-                // 获取并设置用户信息
-                User user = userService.getById(post.getUserId());
-                if (user != null) {
-                    post.setUser(userService.getUserVO(user));
-                }
-
-                // 清空内容，只在详情页显示
-                post.setContent(null);
-
-                // 设置附件（只保留第一张图片）
-                List<PostAttachment> postAttachments = postAttachmentMap.get(post.getId());
-                if (CollUtil.isNotEmpty(postAttachments)) {
-                    // 只保留第一张图片
-                    postAttachments = postAttachments.subList(0, 1);
-                }
-                post.setAttachments(postAttachments != null ? postAttachments : Collections.emptyList());
-            });
-        }
-
-        return new org.springframework.data.domain.PageImpl<>(
-                postList,
-                PageRequest.of(current - 1, pageSize),
-                searchHits.getTotalHits()
-        );
+        // 创建Spring Data分页对象
+        Pageable pageable = PageRequest.of(current - 1, size);
+        return new PageImpl<>(postList, pageable, total);
     }
 
     /**
      * 搜索空间
+     * @param searchRequest 搜索请求
      */
-    private Page<SpaceVO> searchSpace(SearchRequest searchRequest) {
+    private Page<SpaceVO> searchSpace(SearchRequest searchRequest, HttpServletRequest request) {
         String searchText = searchRequest.getSearchText();
-        Integer current = searchRequest.getCurrent();
-        Integer pageSize = searchRequest.getPageSize();
-
-        // 构建布尔查询
-        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
-                .should(QueryBuilders.matchQuery("spaceName", searchText));
-
-        // 尝试将搜索文本转换为空间ID
-        try {
-            Long spaceId = Long.parseLong(searchText);
-            boolQueryBuilder.should(QueryBuilders.termQuery("id", spaceId));
-        } catch (NumberFormatException ignored) {
+        int current = searchRequest.getCurrent();
+        int size = searchRequest.getPageSize();
+        // 获取搜索空间 id 列表
+        List<Long> spaceIds = this.baseMapper.searchSpace(searchText);
+        if (spaceIds == null || spaceIds.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList());
         }
-
-        boolQueryBuilder.minimumShouldMatch(1)
-                .must(QueryBuilders.termQuery("isDelete", 0))
-                // 只搜索团队空间
-                .must(QueryBuilders.termQuery("spaceType", 1));
-
-        NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-                .withQuery(boolQueryBuilder)
-                .withPageable(PageRequest.of(current - 1, pageSize))
-                .withSort(SortBuilders.scoreSort().order(DESC))
-                .withSort(SortBuilders.fieldSort("createTime").order(DESC))
-                .build();
-
-        SearchHits<Space> searchHits = elasticsearchRestTemplate.search(
-                searchQuery,
-                Space.class,
-                IndexCoordinates.of(SPACE_INDEX)
-        );
-
-        List<Space> spaceList = searchHits.getSearchHits().stream()
-                .map(SearchHit::getContent)
+        // 计算分页参数
+        int total = spaceIds.size();
+        // 转换为0-based索引
+        int start = (current - 1) * size;
+        int end = Math.min(start + size, total);
+        // 获取当前页的 id 子集
+        List<Long> pageIds = spaceIds.subList(start, end);
+        // 将空间 id 列表转换为空间对象列表
+        List<SpaceVO> spaceVOList = pageIds.stream()
+                .map(id -> spaceService.getSpaceVOById(id, request))
                 .collect(Collectors.toList());
+        // 创建Spring Data分页对象
+        Pageable pageable = PageRequest.of(current - 1, size);
+        return new PageImpl<>(spaceVOList, pageable, total);
 
-        // 填充用户信息并转换为VO
-        List<SpaceVO> spaceVOList = new ArrayList<>();
-        if (!spaceList.isEmpty()) {
-            // 获取所有空间ID
-            List<Long> spaceIds = spaceList.stream()
-                    .map(Space::getId)
-                    .collect(Collectors.toList());
-
-            // 批量查询实际的空间数据
-            List<Space> actualSpaces = spaceService.listByIds(spaceIds);
-            Map<Long, Space> spaceMap = actualSpaces.stream()
-                    .collect(Collectors.toMap(Space::getId, space -> space));
-
-            // 获取所有用户ID
-            Set<Long> userIds = spaceList.stream()
-                    .map(Space::getUserId)
-                    .collect(Collectors.toSet());
-
-            // 批量查询用户信息
-            Map<Long, List<User>> userIdUserListMap = userService.listByIds(userIds).stream()
-                    .collect(Collectors.groupingBy(User::getId));
-
-            // 批量查询空间成员数量
-            Map<Long, Long> spaceMemberCountMap = spaceList.stream()
-                    .collect(Collectors.toMap(
-                            Space::getId,
-                            space -> {
-                                QueryWrapper<SpaceUser> queryWrapper = new QueryWrapper<>();
-                                queryWrapper.eq("spaceId", space.getId())
-                                        .eq("status", 1);  // 只统计已通过的成员
-                                return spaceUserService.count(queryWrapper);
-                            }
-                    ));
-
-            // 转换为VO并填充信息
-            spaceVOList = spaceList.stream()
-                    .map(space -> {
-                        SpaceVO spaceVO = SpaceVO.objToVo(space);
-
-                        // 从数据库获取实际的空间数据
-                        Space actualSpace = spaceMap.get(space.getId());
-                        if (actualSpace != null) {
-                            spaceVO.setTotalSize(actualSpace.getTotalSize());
-                            spaceVO.setTotalCount(actualSpace.getTotalCount());
-                        }
-
-                        // 填充空间级别相关信息
-                        SpaceLevelEnum spaceLevelEnum = SpaceLevelEnum.getEnumByValue(space.getSpaceLevel());
-                        if (spaceLevelEnum != null) {
-                            spaceVO.setMaxSize(spaceLevelEnum.getMaxSize());
-                            spaceVO.setMaxCount(spaceLevelEnum.getMaxCount());
-                        }
-
-                        // 设置默认值（只在实际值为null时设置）
-                        spaceVO.setTotalSize(spaceVO.getTotalSize() != null ? spaceVO.getTotalSize() : 0L);
-                        spaceVO.setTotalCount(spaceVO.getTotalCount() != null ? spaceVO.getTotalCount() : 0L);
-
-                        // 填充用户信息
-                        Long userId = space.getUserId();
-                        if (userIdUserListMap.containsKey(userId)) {
-                            User user = userIdUserListMap.get(userId).get(0);
-                            UserVO userVO = userService.getUserVO(user);
-                            // 设置用户默认值
-                            userVO.setUserProfile(userVO.getUserProfile() != null ? userVO.getUserProfile() : "");
-                            spaceVO.setUser(userVO);
-                        }
-
-                        // 填充成员数量
-                        spaceVO.setMemberCount(spaceMemberCountMap.getOrDefault(space.getId(), 0L));
-
-                        return spaceVO;
-                    })
-                    .collect(Collectors.toList());
-        }
-
-        return new PageImpl<>(
-                spaceVOList,
-                PageRequest.of(current - 1, pageSize),
-                searchHits.getTotalHits()
-        );
     }
-
 
 }
 

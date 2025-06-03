@@ -16,23 +16,21 @@ import com.yudie.yudiemainbackend.constant.CommonValue;
 import com.yudie.yudiemainbackend.constant.CrawlerConstant;
 import com.yudie.yudiemainbackend.constant.RedisConstant;
 import com.yudie.yudiemainbackend.constant.UserConstant;
-import com.yudie.yudiemainbackend.esdao.EsPictureDao;
-import com.yudie.yudiemainbackend.esdao.EsPostDao;
-import com.yudie.yudiemainbackend.esdao.EsUserDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
 import com.yudie.yudiemainbackend.manager.CrawlerManager;
 import com.yudie.yudiemainbackend.manager.FileManager;
 import com.yudie.yudiemainbackend.manager.auth.StpKit;
+import com.yudie.yudiemainbackend.manager.auth.model.SpaceUserPermissionConstant;
 import com.yudie.yudiemainbackend.mapper.UserSignInRecordMapper;
 import com.yudie.yudiemainbackend.model.dto.file.UploadPictureResult;
 import com.yudie.yudiemainbackend.model.dto.user.UserModifyPassWord;
 import com.yudie.yudiemainbackend.model.dto.user.UserQueryRequest;
 import com.yudie.yudiemainbackend.model.entity.*;
-import com.yudie.yudiemainbackend.model.entity.es.EsUser;
 import com.yudie.yudiemainbackend.model.enums.UserRoleEnum;
 import com.yudie.yudiemainbackend.model.vo.LoginUserVO;
+import com.yudie.yudiemainbackend.model.vo.PictureVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
 import com.yudie.yudiemainbackend.service.PictureService;
 import com.yudie.yudiemainbackend.service.PostAttachmentService;
@@ -51,7 +49,6 @@ import org.redisson.api.RedissonClient;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
-import java.io.Serializable;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -102,15 +99,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Lazy
     @Resource
     private PictureService pictureService;
-
-    @Resource
-    private EsUserDao esUserDao;
-
-    @Resource
-    private EsPictureDao esPictureDao;
-
-    @Resource
-    private EsPostDao esPostDao;
 
     @Lazy
     @Resource
@@ -503,16 +491,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         // 3.修改密码
         user.setUserPassword(getEncryptPassword(userModifyPassWord.getNewPassword()));
-        // 更新MySQL
-        boolean result = userMapper.updateById(user) > 0;
-        if (result) {
-            // 更新ES
-            EsUser esUser = new EsUser();
-            BeanUtil.copyProperties(user, esUser);
-            esUserDao.save(esUser);
-        }
         // 4.返回修改结果
-        return result;
+        return userMapper.updateById(user) > 0;
     }
 
     /**
@@ -557,12 +537,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         user.setUserAvatar(uploadPictureResult.getUrl());
         // 更新MySQL
         boolean result = userMapper.updateById(user) > 0;
-        if (result) {
-            // 更新ES
-            EsUser esUser = new EsUser();
-            BeanUtil.copyProperties(user, esUser);
-            esUserDao.save(esUser);
-        }
         return uploadPictureResult.getUrl();
     }
 
@@ -739,17 +713,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 } else {
                     stringRedisTemplate.opsForValue().set(banKey, "1");
                 }
-                // 8. 更新ES中的用户信息
-                try {
-                    Optional<EsUser> esUserOpt = esUserDao.findById(userId);
-                    if (esUserOpt.isPresent()) {
-                        EsUser esUser = esUserOpt.get();
-                        esUser.setUserRole(isUnban ? UserConstant.DEFAULT_ROLE : CrawlerConstant.BAN_ROLE);
-                        esUserDao.save(esUser);
-                    }
-                } catch (Exception e) {
-                    log.error("更新ES用户信息失败", e);
-                }
             }
             return result;
         } else {
@@ -775,11 +738,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             if (!pictureList.isEmpty()) {
                 // 删除数据库记录
                 pictureService.remove(pictureQueryWrapper);
-                // 删除ES中的图片记录
-                List<Long> pictureIds = pictureList.stream()
-                        .map(Picture::getId)
-                        .collect(Collectors.toList());
-                esPictureDao.deleteAllById(pictureIds);
 
             }
             // 2. 删除用户发布的帖子
@@ -796,14 +754,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 postAttachmentService.remove(attachmentQueryWrapper);
                 // 删除帖子
                 postService.remove(postQueryWrapper);
-                // 删除ES中的帖子记录
-                esPostDao.deleteAllById(postIds);
             }
 
             // 3. 删除用户数据
             this.removeById(userId);
-            // 删除ES中的用户记录
-            esUserDao.deleteById(userId);
             // 4. 清理相关缓存
             String userKey = String.format("user:ban:%d", userId);
             stringRedisTemplate.delete(userKey);
@@ -917,58 +871,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return signInDays;
     }
 
-    // 重写 MyBatis Plus 的常用方法，主要是加上 ES 的同步操作
-
     /**
-     * 根据主键ID从MySQL删除
-     * @param id 主键ID
-     * @return 结果
+     * 根据用户 id 获取用户Vo
+     * @param id 用户 id
+     * @return 用户Vo
      */
     @Override
-    public boolean removeById(Serializable id) {
-        // 从 MySQL 删除
-        boolean result = super.removeById(id);
-        if (result) {
-            // 从 ES 删除
-            esUserDao.deleteById((Long) id);
-        }
-        return result;
-    }
-
-    /**
-     * 从MySQL批量删除
-     * @param idList 主键ID或实体列表
-     * @return 结果
-     */
-    @Override
-    public boolean removeByIds(Collection<?> idList) {
-        // 从 MySQL 批量删除
-        boolean result = super.removeByIds(idList);
-        if (result) {
-            // 从ES批量删除
-            idList.forEach(id -> esUserDao.deleteById((Long) id));
-        }
-        return result;
-    }
-
-    /**
-     * 更新 MySQL
-     * @param entity 实体对象
-     * @return 结果
-     */
-    @Override
-    public boolean updateById(User entity) {
-        // 更新 MySQL
-        boolean result = super.updateById(entity);
-        if (result) {
-            // 获取完整的用户信息
-            User updatedUser = this.getById(entity.getId());
-            // 转换为 ES 实体
-            EsUser esUser = new EsUser();
-            BeanUtil.copyProperties(updatedUser, esUser);
-            esUserDao.save(esUser);
-        }
-        return result;
+    public UserVO getUserVOById(Long id) {
+        ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        // 查询数据库
+        User user = this.getById(id);
+        ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR);
+        // 获取图片VO
+        return this.getUserVO(user);
     }
 
 }

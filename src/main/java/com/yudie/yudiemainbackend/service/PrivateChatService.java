@@ -31,10 +31,10 @@ public interface PrivateChatService extends IService<PrivateChat> {
      * 创建或更新私聊
      * @param userId 用户ID
      * @param targetUserId 目标用户ID
-     * @param content 内容
+     * @param lastMessage 内容
      * @return 私聊
      */
-    PrivateChat createOrUpdatePrivateChat(long userId, long targetUserId, String content);
+    PrivateChat createOrUpdatePrivateChat(long userId, long targetUserId, String lastMessage);
 
     /**
      * 检查是否是好友关系（双向关注）

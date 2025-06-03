@@ -1,14 +1,19 @@
 package com.yudie.yudiemainbackend.model.dto.search;
 
+import com.yudie.yudiemainbackend.common.PageRequest;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.io.Serializable;
 
 /**
  * @description: 搜索请求
  * @author: xiaorui
  * @date: 2025-05-30 10:00
  **/
+@EqualsAndHashCode(callSuper = true)
 @Data
-public class SearchRequest {
+public class SearchRequest  extends PageRequest implements Serializable {
 
     /**
      * 搜索关键词
@@ -27,10 +32,13 @@ public class SearchRequest {
     /**
      * 当前页码
      */
-    private Integer current = 1;
+    private int current = 1;
 
     /**
      * 页面大小
      */
-    private Integer pageSize = 10;
+    private int pageSize = 10;
+
+    private static final long serialVersionUID = 1L;
+
 }

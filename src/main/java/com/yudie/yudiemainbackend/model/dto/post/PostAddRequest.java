@@ -11,6 +11,7 @@ import java.util.List;
  **/
 @Data
 public class PostAddRequest {
+
     private String title;
 
     /**

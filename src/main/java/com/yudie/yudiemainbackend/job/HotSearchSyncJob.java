@@ -1,10 +1,8 @@
 package com.yudie.yudiemainbackend.job;
 
 import cn.hutool.core.util.RandomUtil;
-import com.yudie.yudiemainbackend.esdao.EsSearchKeywordDao;
 import com.yudie.yudiemainbackend.mapper.HotSearchMapper;
 import com.yudie.yudiemainbackend.model.entity.HotSearch;
-import com.yudie.yudiemainbackend.model.entity.es.EsSearchKeyword;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.data.redis.core.RedisCallback;
@@ -35,9 +33,6 @@ public class HotSearchSyncJob implements HotSearchSync, CommandLineRunner {
     private static final String[] SEARCH_TYPES = {"picture", "user", "post", "space"};
 
     @Resource
-    private EsSearchKeywordDao esSearchKeywordDao;
-
-    @Resource
     private HotSearchMapper hotSearchMapper;
 
     @Resource
@@ -64,6 +59,7 @@ public class HotSearchSyncJob implements HotSearchSync, CommandLineRunner {
      * 缓存预热
      */
     @Override
+    @Scheduled(cron = "0 0 2 * * ?")
     public void warmUpCache() {
         // 获取最近24小时的数据
         Date startTime = new Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000);
@@ -72,30 +68,6 @@ public class HotSearchSyncJob implements HotSearchSync, CommandLineRunner {
             try {
                 // 先尝试从MySQL获取数据
                 List<HotSearch> hotSearchList = hotSearchMapper.getHotSearchAfter(type, startTime, DEFAULT_SIZE);
-
-                if (hotSearchList.isEmpty()) {
-                    // MySQL没有数据，从ES获取
-                    List<EsSearchKeyword> keywords = esSearchKeywordDao
-                            .findByTypeAndUpdateTimeAfterOrderByCountDesc(type, startTime);
-
-                    if (!keywords.isEmpty()) {
-                        // 转换为MySQL实体并保存
-                        hotSearchList = keywords.stream()
-                                .map(keyword -> {
-                                    HotSearch hotSearch = new HotSearch();
-                                    hotSearch.setKeyword(keyword.getKeyword());
-                                    hotSearch.setType(keyword.getType());
-                                    hotSearch.setCount(keyword.getCount());
-                                    hotSearch.setLastUpdateTime(keyword.getUpdateTime());
-                                    return hotSearch;
-                                })
-                                .collect(Collectors.toList());
-
-                        // 批量插入或更新到MySQL
-                        hotSearchMapper.batchInsertOrUpdate(hotSearchList);
-                    }
-                }
-
                 // 更新Redis缓存
                 if (!hotSearchList.isEmpty()) {
                     updateCache(type, hotSearchList);
@@ -107,57 +79,12 @@ public class HotSearchSyncJob implements HotSearchSync, CommandLineRunner {
         }
     }
 
+
     /**
-     * 每17分钟同步一次热门搜索数据到MySQL和Redis
+     * 每2小时更新Redis缓存
      */
     @Override
-    @Scheduled(fixedRate = 17 * 60 * 1000)
-    public void syncHotSearch() {
-        try {
-            log.info("开始同步热门搜索数据");
-
-            // 获取最近24小时的数据
-            Date startTime = new Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000);
-
-            // 获取所有类型的热门搜索
-            for (String type : SEARCH_TYPES) {
-                // 从ES获取热门搜索数据
-                List<EsSearchKeyword> keywords = esSearchKeywordDao
-                        .findByTypeAndUpdateTimeAfterOrderByCountDesc(type, startTime);
-
-                if (!keywords.isEmpty()) {
-                    // 转换为MySQL实体
-                    List<HotSearch> hotSearchList = keywords.stream()
-                            .map(keyword -> {
-                                HotSearch hotSearch = new HotSearch();
-                                hotSearch.setKeyword(keyword.getKeyword());
-                                hotSearch.setType(keyword.getType());
-                                hotSearch.setCount(keyword.getCount());
-                                hotSearch.setLastUpdateTime(keyword.getUpdateTime());
-                                return hotSearch;
-                            })
-                            .collect(Collectors.toList());
-
-                    // 批量插入或更新到MySQL
-                    hotSearchMapper.batchInsertOrUpdate(hotSearchList);
-
-                    // 更新Redis缓存
-                    updateCache(type, hotSearchList);
-
-                    log.info("同步{}类型的热门搜索数据成功，数量: {}", type, hotSearchList.size());
-                }
-            }
-
-            log.info("同步热门搜索数据完成");
-        } catch (Exception e) {
-            log.error("同步热门搜索数据失败", e);
-        }
-    }
-
-    /**
-     * 更新Redis缓存
-     */
-    private void updateCache(String type, List<HotSearch> hotSearchList) {
+    public void updateCache(String type, List<HotSearch> hotSearchList) {
         String cacheKey = String.format(HOT_SEARCH_CACHE_KEY, type);
         try {
             // 获取前50个热门搜索词
@@ -185,5 +112,4 @@ public class HotSearchSyncJob implements HotSearchSync, CommandLineRunner {
             log.error("更新热门搜索缓存失败, type={}", type, e);
         }
     }
-
 }

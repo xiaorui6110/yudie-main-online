@@ -5,6 +5,7 @@ import com.yudie.yudiemainbackend.model.entity.HotSearch;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.springframework.data.domain.Page;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**
@@ -24,9 +25,10 @@ public interface SearchService extends IService<HotSearch> {
 
     /**
      * 统一搜索接口
+     *
      * @param searchRequest 搜索请求
      * @return 搜索结果
      */
-    Page<?> doSearch(SearchRequest searchRequest);
+    Page<?> doSearch(SearchRequest searchRequest, HttpServletRequest request);
 
 }

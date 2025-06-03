@@ -1,6 +1,8 @@
 package com.yudie.yudiemainbackend.controller;
 
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.web.bind.annotation.*;
 import com.yudie.yudiemainbackend.common.BaseResponse;
 import com.yudie.yudiemainbackend.common.ResultUtils;
 import com.yudie.yudiemainbackend.exception.BusinessException;
@@ -8,10 +10,10 @@ import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.model.dto.search.SearchRequest;
 import com.yudie.yudiemainbackend.service.SearchService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.web.bind.annotation.*;
+
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**
@@ -28,8 +30,8 @@ public class SearchController {
     private SearchService searchService;
 
     @PostMapping("/all")
-    public BaseResponse<Page<?>> searchAll(@RequestBody SearchRequest searchRequest) {
-        return ResultUtils.success(searchService.doSearch(searchRequest));
+    public BaseResponse<Page<?>> searchAll(@RequestBody SearchRequest searchRequest, HttpServletRequest request) {
+        return ResultUtils.success(searchService.doSearch(searchRequest,request));
     }
 
     /**
@@ -47,7 +49,7 @@ public class SearchController {
         }
         final int MAX_SIZE = 100;
         if (size <= 0 || size > MAX_SIZE) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "size必须在1-100之间");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "size 必须在1-100之间");
         }
         if (!type.matches("^(picture|user|post|space)$")) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "不支持的搜索类型");

@@ -46,7 +46,6 @@ public class UserfollowsServiceImpl extends ServiceImpl<UserfollowsMapper, Userf
     @Resource
     private PrivateChatService privateChatService;
 
-
     /**
      * 添加关注（0-取消关注操作，1-关注操作）
      * @param userFollowsAddRequest 用户关注请求

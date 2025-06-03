@@ -22,12 +22,11 @@ public interface UserService extends IService<User> {
 
     /**
      * 用户注册
-     *
      * @param email 用户邮箱
      * @param userPassword 用户密码
-     * @param checkPassword 校验密码
-     * @param code 验证码
-     * @return 新用户 id
+     * @param checkPassword 确认密码
+     * @param code 邮箱验证码
+     * @return 是否注册成功
      */
     long userRegister(String email, String userPassword, String checkPassword, String code);
 
@@ -41,8 +40,8 @@ public interface UserService extends IService<User> {
 
     /**
      * 发送邮箱验证码
-     * @param email 用户邮箱
-     * @param type 验证码类型
+     * @param email 邮箱
+     * @param type 类型
      * @param request HTTP请求
      */
     void sendEmailCode(String email, String type, HttpServletRequest request);
@@ -158,7 +157,7 @@ public interface UserService extends IService<User> {
 
     /**
      * 重置密码
-     * @param email 用户邮箱
+     * @param email 邮箱
      * @param newPassword 新密码
      * @param checkPassword 确认密码
      * @param code 验证码
@@ -195,5 +194,13 @@ public interface UserService extends IService<User> {
      * @return 签到记录
      */
     List<Integer> getUserSignInRecord(long userId, Integer year);
+
+    /**
+     * 根据用户 id 获取用户Vo
+     * @param id 用户 id
+     * @return 用户Vo
+     */
+    UserVO getUserVOById(Long id);
+
 
 }

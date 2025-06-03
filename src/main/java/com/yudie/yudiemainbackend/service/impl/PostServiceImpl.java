@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yudie.yudiemainbackend.constant.UserConstant;
-import com.yudie.yudiemainbackend.esdao.EsPostDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
@@ -15,7 +14,6 @@ import com.yudie.yudiemainbackend.model.dto.post.PostAddRequest;
 import com.yudie.yudiemainbackend.model.dto.post.PostAttachmentRequest;
 import com.yudie.yudiemainbackend.model.dto.post.PostQueryRequest;
 import com.yudie.yudiemainbackend.model.entity.*;
-import com.yudie.yudiemainbackend.model.entity.es.EsPost;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
 import com.yudie.yudiemainbackend.service.*;
 import com.yudie.yudiemainbackend.mapper.PostMapper;
@@ -57,9 +55,6 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
 
     @Resource
     private UserfollowsService userfollowsService;
-
-    @Resource
-    private EsPostDao esPostDao;
 
     @Resource
     private LikeRecordService likeRecordService;
@@ -108,15 +103,6 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
         post.setStatus(0);
         boolean success = this.save(post);
         ThrowUtils.throwIf(!success, ErrorCode.OPERATION_ERROR, "创建帖子失败");
-        // 同步到 ES
-        try {
-            EsPost esPost = new EsPost();
-            BeanUtils.copyProperties(post, esPost);
-            esPostDao.save(esPost);
-        } catch (Exception e) {
-            log.error("Failed to sync post to ES during creation, postId: {}", post.getId(), e);
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
-        }
         // 3. 返回结果
         // 处理附件时，对于图片类型，使用缩略图URL
         if (CollUtil.isNotEmpty(attachments)) {
@@ -370,24 +356,6 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
         updatePost.setReviewMessage(message);
         boolean success = this.updateById(updatePost);
         ThrowUtils.throwIf(!success, ErrorCode.OPERATION_ERROR, "更新审核状态失败");
-        // 同步更新 ES 数据
-        try {
-            Optional<EsPost> esOptional = esPostDao.findById(postId);
-            EsPost esPost;
-            if (esOptional.isPresent()) {
-                esPost = esOptional.get();
-                esPost.setStatus(status);
-                esPost.setReviewMessage(message);
-            } else {
-                post = this.getById(postId);
-                esPost = new EsPost();
-                BeanUtils.copyProperties(post, esPost);
-            }
-            esPostDao.save(esPost);
-        } catch (Exception e) {
-            log.error("Failed to sync post review status to ES, postId: {}", postId, e);
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
-        }
     }
 
     /**
@@ -508,24 +476,6 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
         // 更新操作
         boolean success = this.updateById(post);
         ThrowUtils.throwIf(!success, ErrorCode.OPERATION_ERROR, "帖子更新失败");
-        // 同步更新 ES 数据
-        try {
-            Optional<EsPost> esOptional = esPostDao.findById(post.getId());
-            EsPost esPost;
-            if (esOptional.isPresent()) {
-                esPost = esOptional.get();
-                // 使用新的变量名避免冲突
-                Post updatedPost = this.getById(post.getId());
-                BeanUtils.copyProperties(updatedPost, esPost);
-            } else {
-                esPost = new EsPost();
-                BeanUtils.copyProperties(post, esPost);
-            }
-            esPostDao.save(esPost);
-        } catch (Exception e) {
-            log.error("Failed to sync post to ES during update, postId: {}", post.getId(), e);
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
-        }
         // 更新附件时，对于图片类型，使用缩略图 URL
         if (attachments != null) {
             // 删除原有附件
@@ -786,8 +736,6 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
                             .setSql("viewCount = viewCount + " + viewCountStr)
                             .eq("id", postId)
                             .update();
-                    // 更新ES
-                    updateEsPostViewCount(postId, Long.parseLong(viewCountStr));
                     // 更新后重置 Redis 计数
                     stringRedisTemplate.delete(viewCountKey);
                 }
@@ -795,22 +743,6 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post>
         } finally {
             // 释放锁
             stringRedisTemplate.delete(lockKey);
-        }
-    }
-
-    /**
-     * 更新 ES 中帖子的浏览量
-     * @param postId 帖子ID
-     * @param viewCount 浏览量
-     */
-    private void updateEsPostViewCount(Long postId, Long viewCount) {
-        try {
-            esPostDao.findById(postId).ifPresent(esPost -> {
-                esPost.setViewCount(esPost.getViewCount() + viewCount);
-                esPostDao.save(esPost);
-            });
-        } catch (Exception e) {
-            log.error("Failed to update ES post view count, postId: {}", postId, e);
         }
     }
 

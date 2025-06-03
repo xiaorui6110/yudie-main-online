@@ -1,5 +1,9 @@
 package com.yudie.yudiemainbackend.job;
 
+import com.yudie.yudiemainbackend.model.entity.HotSearch;
+
+import java.util.List;
+
 /**
  * @description: 热门搜索同步接口
  * @author: xiaorui
@@ -8,9 +12,9 @@ package com.yudie.yudiemainbackend.job;
 public interface HotSearchSync {
 
     /**
-     * 同步热门搜索数据
+     * 更新Redis缓存
      */
-    void syncHotSearch();
+    void updateCache(String type, List<HotSearch> hotSearchList);
 
     /**
      * 预热缓存

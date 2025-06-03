@@ -6,7 +6,6 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.yudie.yudiemainbackend.esdao.EsSpaceDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
@@ -15,7 +14,6 @@ import com.yudie.yudiemainbackend.model.dto.space.SpaceQueryRequest;
 import com.yudie.yudiemainbackend.model.entity.Space;
 import com.yudie.yudiemainbackend.model.entity.SpaceUser;
 import com.yudie.yudiemainbackend.model.entity.User;
-import com.yudie.yudiemainbackend.model.entity.es.EsSpace;
 import com.yudie.yudiemainbackend.model.enums.OperationEnum;
 import com.yudie.yudiemainbackend.model.enums.SpaceLevelEnum;
 import com.yudie.yudiemainbackend.model.enums.SpaceRoleEnum;
@@ -32,7 +30,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.io.Serializable;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -55,9 +52,6 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
 
     @Resource
     private SpaceUserService spaceUserService;
-
-    @Resource
-    private EsSpaceDao esSpaceDao;
 
     /**
      * 创建空间
@@ -289,61 +283,20 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         }
     }
 
-
-    // 重写 MyBatis Plus 的常用方法，主要是加上 ES 的同步操作
-
-
+    /**
+     * 根据空间 id 获取空间VO
+     * @param id 空间 id
+     * @return 空间VO
+     */
     @Override
-    public boolean removeById(Serializable id) {
-        // 从MySQL删除
-        boolean result = super.removeById(id);
-        if (result) {
-            // 从ES删除
-            esSpaceDao.deleteById((Long) id);
-        }
-        return result;
+    public SpaceVO getSpaceVOById(long id, HttpServletRequest request) {
+        ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        // 查询数据库
+        Space space  = this.getById(id);
+        ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR);
+        // 获取图片VO
+        return this.getSpaceVO(space, request);
     }
-
-    @Override
-    public boolean removeByIds(Collection<?> idList) {
-        // 从MySQL批量删除
-        boolean result = super.removeByIds(idList);
-        if (result) {
-            // 从ES批量删除
-            idList.forEach(id -> esSpaceDao.deleteById((Long) id));
-        }
-        return result;
-    }
-
-    @Override
-    public boolean updateById(Space entity) {
-        // 更新MySQL
-        boolean result = super.updateById(entity);
-        if (result) {
-            // 获取完整的空间信息
-            Space updatedSpace = this.getById(entity.getId());
-            // 转换为ES实体
-            EsSpace esSpace = new EsSpace();
-            BeanUtils.copyProperties(updatedSpace, esSpace);
-            esSpaceDao.save(esSpace);
-        }
-        return result;
-    }
-
-    @Override
-    public boolean save(Space entity) {
-        // 保存到MySQL
-        boolean result = super.save(entity);
-        if (result) {
-            // 保存到ES
-            EsSpace esSpace = new EsSpace();
-            BeanUtils.copyProperties(entity, esSpace);
-            esSpaceDao.save(esSpace);
-        }
-        return result;
-    }
-
-
 }
 
 

@@ -31,7 +31,6 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         return this.baseMapper.listTag();
     }
 
-
     /**
      * 获取标签包装类
      * @param tag 标签
@@ -47,7 +46,6 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         return tagVO;
     }
 
-
     /**
      * 分页获取标签包装类
      * @param records 标签
@@ -61,7 +59,6 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         return records.stream().map(this::getTagVO).collect(Collectors.toList());
     }
 
-
     /**
      * 添加标签
      * @param tagName 标签名
@@ -74,7 +71,6 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         return save(tag);
     }
 
-
     /**
      * 删除标签
      * @param id 标签 id
@@ -84,7 +80,6 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
     public Boolean deleteTag(Long id) {
         return removeById(id);
     }
-
 
     /**
      * 搜索标签

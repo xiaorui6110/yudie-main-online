@@ -69,4 +69,12 @@ public interface SpaceService extends IService<Space> {
      */
     void checkSpaceAuth(User loginUser, Space space);
 
+    /**
+     * 根据空间 id 获取空间VO
+     * @param id 空间 id
+     * @return 空间VO
+     */
+    SpaceVO getSpaceVOById(long id, HttpServletRequest request);
+
+
 }

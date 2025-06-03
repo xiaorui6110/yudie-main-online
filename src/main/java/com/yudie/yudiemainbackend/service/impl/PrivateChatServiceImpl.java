@@ -101,12 +101,12 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
      * 创建或更新私聊
      * @param userId 用户ID
      * @param targetUserId 目标用户ID
-     * @param content 内容
+     * @param lastMessage 内容
      * @return 私聊
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public PrivateChat createOrUpdatePrivateChat(long userId, long targetUserId, String content) {
+    public PrivateChat createOrUpdatePrivateChat(long userId, long targetUserId, String lastMessage) {
         // 查找现有私聊（检查两个方向）
         QueryWrapper<PrivateChat> queryWrapper = new QueryWrapper<>();
         long finalUserId = userId;
@@ -149,7 +149,7 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
         }
 
         // 更新最后消息
-        privateChat.setLastMessage(content);
+        privateChat.setLastMessage(lastMessage);
         privateChat.setLastMessageTime(new Date());
         // 增加目标用户的未读消息数
         privateChat.setTargetUserUnreadCount(privateChat.getTargetUserUnreadCount() + 1);
@@ -160,7 +160,7 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
         ChatMessage chatMessage = new ChatMessage();
         chatMessage.setSenderId(userId);
         chatMessage.setReceiverId(targetUserId);
-        chatMessage.setContent(content);
+        chatMessage.setContent(lastMessage);
         // 私聊类型
         chatMessage.setType(1);
         // 未读状态

@@ -9,25 +9,21 @@ import com.yudie.yudiemainbackend.common.DeleteRequest;
 import com.yudie.yudiemainbackend.common.ResultUtils;
 import com.yudie.yudiemainbackend.constant.CommonValue;
 import com.yudie.yudiemainbackend.constant.UserConstant;
-import com.yudie.yudiemainbackend.esdao.EsUserDao;
 import com.yudie.yudiemainbackend.exception.BusinessException;
 import com.yudie.yudiemainbackend.exception.ErrorCode;
 import com.yudie.yudiemainbackend.exception.ThrowUtils;
 import com.yudie.yudiemainbackend.model.dto.user.*;
 import com.yudie.yudiemainbackend.model.entity.User;
-import com.yudie.yudiemainbackend.model.entity.es.EsUser;
 import com.yudie.yudiemainbackend.model.vo.LoginUserVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
 import com.yudie.yudiemainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -44,9 +40,6 @@ public class UserController {
 
     @Resource
     private UserService userService;
-
-    @Resource
-    private EsUserDao esUserDao;
 
     /**
      * 用户注册
@@ -159,6 +152,7 @@ public class UserController {
         String encryptPassword = userService.getEncryptPassword(CommonValue.DEFAULT_PASSWORD);
         user.setUserPassword(encryptPassword);
         user.setUserName(CommonValue.DEFAULT_USERNAME);
+        user.setUserAvatar("https://xiaorui-1350018626.cos.ap-nanjing.myqcloud.com/public/1925200238819598337/2025-05-31_gXMMGtmOoe0Vi9EI.webp");
         boolean result = userService.save(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(user.getId());
@@ -221,10 +215,6 @@ public class UserController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         boolean result = userService.removeById(deleteRequest.getId());
-        if (result) {
-            // 从 ES 删除
-            esUserDao.deleteById(deleteRequest.getId());
-        }
         return ResultUtils.success(result);
     }
 
@@ -315,14 +305,6 @@ public class UserController {
         User user = new User();
         BeanUtil.copyProperties(userUpdateRequest, user);
         boolean result = userService.updateById(user);
-        if (result) {
-            // 获取完整的用户信息
-            User updatedUser = userService.getById(user.getId());
-            // 转换为ES实体
-            EsUser esUser = new EsUser();
-            BeanUtils.copyProperties(updatedUser, esUser);
-            esUserDao.save(esUser);
-        }
         return ResultUtils.success(result);
     }
 
@@ -341,10 +323,6 @@ public class UserController {
                 .map(DeleteRequest::getId)
                 .collect(Collectors.toList());
         boolean result = userService.removeByIds(idList);
-        if (result) {
-            // 批量删除ES数据
-            idList.forEach(id -> esUserDao.deleteById(id));
-        }
         return ResultUtils.success(result);
     }
 

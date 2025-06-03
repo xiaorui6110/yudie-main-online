@@ -5,10 +5,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.yudie.yudiemainbackend.esdao.EsPictureDao;
-import com.yudie.yudiemainbackend.esdao.EsPostDao;
-import com.yudie.yudiemainbackend.exception.ErrorCode;
-import com.yudie.yudiemainbackend.exception.ThrowUtils;
 import com.yudie.yudiemainbackend.model.dto.like.LikeQueryRequest;
 import com.yudie.yudiemainbackend.model.dto.like.LikeRequest;
 import com.yudie.yudiemainbackend.model.entity.LikeRecord;
@@ -56,12 +52,6 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
 
     @Resource
     private UserService userService;
-
-    @Resource
-    private EsPictureDao esPictureDao;
-
-    @Resource
-    private EsPostDao esPostDao;
 
     @Override
     @Async("asyncExecutor")
@@ -177,7 +167,6 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
                         .eq("id", targetId)
                         .ge("likeCount", -delta)
                         .update();
-                updateEsPictureLikeCount(targetId, delta);
                 break;
             // 帖子
             case 2:
@@ -186,42 +175,9 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
                         .eq("id", targetId)
                         .ge("likeCount", -delta)
                         .update();
-                updateEsPostLikeCount(targetId, delta);
                 break;
             default:
                 log.error("Unsupported target type: {}", targetType);
-        }
-    }
-
-    /**
-     * 更新 ES 中图片的点赞数
-     * @param pictureId 图片ID
-     * @param delta 点赞数变化量
-     */
-    private void updateEsPictureLikeCount(Long pictureId, int delta) {
-        try {
-            esPictureDao.findById(pictureId).ifPresent(esPicture -> {
-                esPicture.setLikeCount(esPicture.getLikeCount() + delta);
-                esPictureDao.save(esPicture);
-            });
-        } catch (Exception e) {
-            log.error("Failed to update ES picture like count, pictureId: {}", pictureId, e);
-        }
-    }
-
-    /**
-     * 更新 ES 中帖子的点赞数
-     * @param postId 帖子ID
-     * @param delta 点赞数变化量
-     */
-    private void updateEsPostLikeCount(Long postId, int delta) {
-        try {
-            esPostDao.findById(postId).ifPresent(esPost -> {
-                esPost.setLikeCount(esPost.getLikeCount() + delta);
-                esPostDao.save(esPost);
-            });
-        } catch (Exception e) {
-            log.error("Failed to update ES post like count, postId: {}", postId, e);
         }
     }
 
