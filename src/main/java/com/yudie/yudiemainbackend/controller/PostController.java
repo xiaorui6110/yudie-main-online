@@ -73,7 +73,7 @@ public class PostController {
      * @return 是否更新成功
      */
     @PostMapping("/update")
-    public BaseResponse<Boolean> updatePost(@PathVariable Post post, HttpServletRequest request) {
+    public BaseResponse<Boolean> updatePost(@RequestBody Post post, HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
         Post oldPost = postService.getById(post.getId());

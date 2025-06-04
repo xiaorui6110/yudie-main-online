@@ -269,10 +269,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 2.查询用户信息
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userPassword", encryptPassword)
-                .and( wrapper -> wrapper.eq("userAccount", accountOrEmail)
+                .and(wrapper -> wrapper.eq("userAccount", accountOrEmail)
                         .or()
                         .eq("email", accountOrEmail));
-        User user = this.getOne(queryWrapper);
+        User user = this.baseMapper.selectOne(queryWrapper);
         // 用户不存在
         if (user == null) {
             log.info("user login failed, accountOrEmail cannot match userPassword");
@@ -642,7 +642,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"两次输入的密码不一致");
         }
         // 2.校验验证码
-        String verifyCodeKey = String.format("email:code:verify:changeEmail:%s", email);
+        String verifyCodeKey = String.format("email:code:verify:resetPassword:%s", email);
         String correctCode = stringRedisTemplate.opsForValue().get(verifyCodeKey);
         if (StrUtil.isBlank(correctCode) || !correctCode.equals(code)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"验证码错误或已过期");

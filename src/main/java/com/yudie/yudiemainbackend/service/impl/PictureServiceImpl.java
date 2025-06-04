@@ -163,7 +163,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 如果是更新图片，先查询图片信息
         if (pictureId != null) {
             Picture oldPicture = this.getById(pictureId);
-            ThrowUtils.throwIf(ObjUtil.isNull(oldPicture), ErrorCode.NOT_FOUND_ERROR);
+            ThrowUtils.throwIf(ObjUtil.isNull(oldPicture), ErrorCode.NOT_FOUND_ERROR, "图片不存在");
             // 校验空间
             // 没传 spaceId，则复用原有图片的 spaceId（这样也兼容了公共图库）
             if (spaceId == null) {

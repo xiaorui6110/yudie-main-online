@@ -346,24 +346,13 @@ public class PictureController {
      * @return 图片列表
      */
     @PostMapping("/search/picture")
-    public BaseResponse<List<SoImageSearchResult>> searchPictureByPicture(@RequestBody SearchPictureByPictureRequest searchPictureByPictureRequest) {
+    public BaseResponse<List<ImageSearchResult>> searchPictureByPicture(@RequestBody SearchPictureByPictureRequest searchPictureByPictureRequest) {
         ThrowUtils.throwIf(searchPictureByPictureRequest == null, ErrorCode.PARAMS_ERROR);
         Long pictureId = searchPictureByPictureRequest.getPictureId();
         ThrowUtils.throwIf(pictureId == null || pictureId <= 0, ErrorCode.PARAMS_ERROR);
         Picture picture = pictureService.getById(pictureId);
         ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR);
-        List<SoImageSearchResult> resultList = new ArrayList<>();
-        // start 是控制查询多少页
-        int start = 0;
-        final int MAX_PAGE_SIZE = 50;
-        while (resultList.size() <= MAX_PAGE_SIZE) {
-            List<SoImageSearchResult> tempList = SoImageSearchApiFacade.searchImage(picture.getUrl(), start);
-            if (tempList.isEmpty()) {
-                break;
-            }
-            resultList.addAll(tempList);
-            start += tempList.size();
-        }
+        List<ImageSearchResult> resultList = ImageSearchApiFacade.searchImage(picture.getThumbnailUrl());
         return ResultUtils.success(resultList);
     }
 
