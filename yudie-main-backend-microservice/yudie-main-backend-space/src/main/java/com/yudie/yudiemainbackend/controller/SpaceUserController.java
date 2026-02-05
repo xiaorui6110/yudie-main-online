@@ -1,0 +1,188 @@
+package com.yudie.yudiemainbackend.controller;
+
+import cn.hutool.core.util.ObjectUtil;
+import com.yudie.yudiemainbackend.common.BaseResponse;
+import com.yudie.yudiemainbackend.common.DeleteRequest;
+import com.yudie.yudiemainbackend.common.ResultUtils;
+import com.yudie.yudiemainbackend.exception.BusinessException;
+import com.yudie.yudiemainbackend.exception.ErrorCode;
+import com.yudie.yudiemainbackend.exception.ThrowUtils;
+import com.yudie.yudiemainbackend.innerservice.user.InnerUserService;
+import com.yudie.yudiemainbackend.manager.auth.annotation.SaSpaceCheckPermission;
+import com.yudie.yudiemainbackend.manager.auth.model.SpaceUserPermissionConstant;
+import com.yudie.yudiemainbackend.model.dto.spaceuser.*;
+import com.yudie.yudiemainbackend.model.entity.SpaceUser;
+import com.yudie.yudiemainbackend.model.entity.User;
+import com.yudie.yudiemainbackend.model.vo.SpaceUserVO;
+import com.yudie.yudiemainbackend.service.SpaceUserService;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.annotation.Resource;
+import java.util.List;
+
+/**
+ * @description: 空间成员管理实现类接口
+ * @author: xiaorui
+ * @date: 2025-05-28 11:27
+ **/
+@Slf4j
+@RestController
+@RequestMapping("/spaceUser")
+public class SpaceUserController {
+
+    @Resource
+    private SpaceUserService spaceUserService;
+
+    @Resource
+    private InnerUserService userService;
+
+    /**
+     * 添加成员到空间
+     * @param spaceUserAddRequest 添加成员请求
+     * @param request 请求
+     * @return 是否添加成功
+     */
+    @PostMapping("/add")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
+    public BaseResponse<Long> addSpaceUser(@RequestBody SpaceUserAddRequest spaceUserAddRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(spaceUserAddRequest == null, ErrorCode.PARAMS_ERROR);
+        long id = spaceUserService.addSpaceUser(spaceUserAddRequest);
+        return ResultUtils.success(id);
+    }
+
+    /**
+     * 从空间移除成员
+     * @param deleteRequest 移除成员请求
+     * @param request 请求
+     * @return 是否删除成功
+     */
+    @PostMapping("/delete")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
+    public BaseResponse<Boolean> deleteSpaceUser(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
+        if (deleteRequest == null || deleteRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        long id = deleteRequest.getId();
+        SpaceUser oldSpaceUser = spaceUserService.getById(id);
+        ThrowUtils.throwIf(oldSpaceUser == null, ErrorCode.NOT_FOUND_ERROR);
+        boolean result = spaceUserService.removeById(id);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 查询某个成员在某个空间的信息
+     * @param spaceUserQueryRequest 查询成员信息请求
+     * @return 成员信息
+     */
+    @PostMapping("/get")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
+    public BaseResponse<SpaceUser> getSpaceUser(@RequestBody SpaceUserQueryRequest spaceUserQueryRequest) {
+        ThrowUtils.throwIf(spaceUserQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        Long spaceId = spaceUserQueryRequest.getSpaceId();
+        Long userId = spaceUserQueryRequest.getUserId();
+        ThrowUtils.throwIf(ObjectUtil.hasEmpty(spaceId, userId), ErrorCode.PARAMS_ERROR);
+        SpaceUser spaceUser = spaceUserService.getOne(spaceUserService.getQueryWrapper(spaceUserQueryRequest));
+        ThrowUtils.throwIf(spaceUser == null, ErrorCode.NOT_FOUND_ERROR);
+        return ResultUtils.success(spaceUser);
+    }
+
+    /**
+     * 查询某个成员在某个空间的信息列表
+     * @param spaceUserQueryRequest 查询成员信息请求
+     * @param request 请求
+     * @return 成员信息列表
+     */
+    @PostMapping("/list")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
+    public BaseResponse<List<SpaceUserVO>> listSpaceUser(@RequestBody SpaceUserQueryRequest spaceUserQueryRequest,
+                                                         HttpServletRequest request) {
+        ThrowUtils.throwIf(spaceUserQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        List<SpaceUser> spaceUserList = spaceUserService.list(spaceUserService.getQueryWrapper(spaceUserQueryRequest));
+        return ResultUtils.success(spaceUserService.getSpaceUserVOList(spaceUserList));
+    }
+
+    /**
+     * 编辑成员信息（设置权限）
+     * @param spaceUserEditRequest 编辑成员信息请求
+     * @param request 请求
+     * @return 是否编辑成功
+     */
+    @PostMapping("/edit")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
+    public BaseResponse<Boolean> editSpaceUser(@RequestBody SpaceUserEditRequest spaceUserEditRequest,
+                                               HttpServletRequest request) {
+        if (spaceUserEditRequest == null || spaceUserEditRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        SpaceUser spaceUser = new SpaceUser();
+        BeanUtils.copyProperties(spaceUserEditRequest, spaceUser);
+        spaceUserService.validSpaceUser(spaceUser, false);
+        long id = spaceUserEditRequest.getId();
+        SpaceUser oldSpaceUser = spaceUserService.getById(id);
+        ThrowUtils.throwIf(oldSpaceUser == null, ErrorCode.NOT_FOUND_ERROR);
+        boolean result = spaceUserService.updateById(spaceUser);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 查询我加入的团队空间列表
+     * @param request 请求
+     * @return 团队空间列表
+     */
+    @PostMapping("/list/my")
+    public BaseResponse<List<SpaceUserVO>> listMyTeamSpace(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        SpaceUserQueryRequest spaceUserQueryRequest = new SpaceUserQueryRequest();
+        spaceUserQueryRequest.setUserId(loginUser.getId());
+        List<SpaceUser> spaceUserList = spaceUserService.list(spaceUserService.getQueryWrapper(spaceUserQueryRequest));
+        return ResultUtils.success(spaceUserService.getSpaceUserVOList(spaceUserList));
+    }
+
+    /**
+     * 审核空间成员申请
+     * @param spaceUserAuditRequest 审核空间成员申请请求
+     * @param request 请求
+     * @return 是否审核成功
+     */
+    @PostMapping("/audit")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
+    public BaseResponse<Boolean> auditSpaceUser(@RequestBody SpaceUserAuditRequest spaceUserAuditRequest,
+                                                HttpServletRequest request) {
+        if (spaceUserAuditRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        boolean result = spaceUserService.auditSpaceUser(spaceUserAuditRequest, loginUser);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 申请加入空间
+     * @param spaceUserJoinRequest 申请加入空间请求
+     * @param request 请求
+     * @return 是否申请成功
+     */
+    @PostMapping("/join")
+    public BaseResponse<Boolean> joinSpace(@RequestBody SpaceUserJoinRequest spaceUserJoinRequest,
+                                           HttpServletRequest request) {
+        if (spaceUserJoinRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        boolean result = spaceUserService.joinSpace(spaceUserJoinRequest, loginUser);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return ResultUtils.success(true);
+    }
+
+}

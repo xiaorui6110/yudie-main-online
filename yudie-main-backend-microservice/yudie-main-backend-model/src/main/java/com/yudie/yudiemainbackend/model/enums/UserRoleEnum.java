@@ -1,0 +1,47 @@
+package com.yudie.yudiemainbackend.model.enums;
+
+import cn.hutool.core.util.ObjUtil;
+import lombok.Getter;
+
+/**
+ * @description: 用户角色枚举类
+ * @author: xiaorui
+ * @date: 2025-05-21 14:45
+ **/
+@Getter
+public enum UserRoleEnum {
+
+    /**
+     * 用户角色枚举
+     */
+    USER_ROLE_ENUM("普通用户", "user"),
+
+    ADMIN_ROLE_ENUM("管理员", "admin");
+
+    private final String text;
+
+    private final String value;
+
+    UserRoleEnum(String text, String value) {
+        this.text = text;
+        this.value = value;
+    }
+
+    /**
+     * 根据 value 获取枚举
+     *
+     * @param value 枚举值的value
+     * @return 枚举值
+     */
+    public static UserRoleEnum getEnumByValue(String value) {
+        if (ObjUtil.isEmpty(value)) {
+            return null;
+        }
+        for (UserRoleEnum anEnum : UserRoleEnum.values()) {
+            if (anEnum.value.equals(value)) {
+                return anEnum;
+            }
+        }
+        return null;
+    }
+}
