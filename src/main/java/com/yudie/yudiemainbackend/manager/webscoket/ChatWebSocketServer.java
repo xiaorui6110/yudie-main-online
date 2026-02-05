@@ -23,7 +23,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * @description:
+ * @description: WebSocket 服务器
  * @author: xiaorui
  * @date: 2025-05-31 11:34
  **/

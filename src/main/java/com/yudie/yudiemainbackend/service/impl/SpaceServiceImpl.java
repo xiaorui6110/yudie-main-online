@@ -297,6 +297,9 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         // 获取图片VO
         return this.getSpaceVO(space, request);
     }
+
+    // todo 使用 ES ，并重写 removeById、removeByIds、updateById、save 方法
+
 }
 
 

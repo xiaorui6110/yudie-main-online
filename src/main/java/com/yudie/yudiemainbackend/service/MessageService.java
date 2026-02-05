@@ -1,6 +1,9 @@
 package com.yudie.yudiemainbackend.service;
 
-import com.yudie.yudiemainbackend.model.dto.message.AddMessage;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yudie.yudiemainbackend.model.dto.message.MessageAddRequest;
+import com.yudie.yudiemainbackend.model.dto.message.MessageQueryRequest;
 import com.yudie.yudiemainbackend.model.entity.Message;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yudie.yudiemainbackend.model.vo.MessageVO;
@@ -16,14 +19,35 @@ public interface MessageService extends IService<Message> {
 
     /**
      * 添加留言
-     * @param addMessage 添加留言请求
+     * @param messageAddRequest 添加留言请求
      * @return 添加留言结果
      */
-    Boolean addMessage(AddMessage addMessage);
+    Boolean addMessage(MessageAddRequest messageAddRequest);
 
     /**
      * 获取热门留言列表
      * @return 留言列表
      */
     List<MessageVO> getTop500();
+
+    /**
+     * 分页获取留言列表
+     * @param messageQueryRequest 查询条件
+     * @return 留言列表
+     */
+    Page<Message> getMessagePage(MessageQueryRequest messageQueryRequest);
+
+    /**
+     * 获取查询条件
+     * @param messageQueryRequest 查询留言请求
+     * @return 查询条件
+     */
+    QueryWrapper<Message> getQueryWrapper(MessageQueryRequest messageQueryRequest);
+
+    /**
+     * 删除留言
+     * @param id 留言id
+     * @return 是否成功
+     */
+    boolean deleteMessage(long id);
 }

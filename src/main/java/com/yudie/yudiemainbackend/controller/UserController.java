@@ -24,6 +24,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -90,9 +92,12 @@ public class UserController {
         }
         String accountOrEmail = userLoginRequest.getAccountOrEmail();
         String userPassword = userLoginRequest.getUserPassword();
+        String verifyCode = userLoginRequest.getVerifyCode();
+        String serververifycode = userLoginRequest.getSerververifycode();
         if (StrUtil.hasBlank(accountOrEmail, userPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        userService.validateCaptcha(verifyCode, serververifycode);
         LoginUserVO loginUserVO = userService.userLogin(accountOrEmail, userPassword, request);
         return ResultUtils.success(loginUserVO);
     }
@@ -148,7 +153,7 @@ public class UserController {
         ThrowUtils.throwIf(userAddRequest == null, ErrorCode.PARAMS_ERROR);
         User user = new User();
         BeanUtil.copyProperties(userAddRequest, user);
-        // 默认密码（加密后）
+        // 默认密码（加密）
         String encryptPassword = userService.getEncryptPassword(CommonValue.DEFAULT_PASSWORD);
         user.setUserPassword(encryptPassword);
         user.setUserName(CommonValue.DEFAULT_USERNAME);
@@ -215,6 +220,9 @@ public class UserController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         boolean result = userService.removeById(deleteRequest.getId());
+
+        // todo 从 ES 中删除
+
         return ResultUtils.success(result);
     }
 
@@ -226,9 +234,9 @@ public class UserController {
      * @return 头像地址
      */
     @PostMapping("/update/avatar")
-    public BaseResponse<String> updateUserAvatar(MultipartFile multipartFile,Long id, HttpServletRequest request) {
+    public BaseResponse<String> updateUserAvatar(MultipartFile multipartFile, Long id, HttpServletRequest request) {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
-        String result = userService.updateUserAvatar(multipartFile,id, request);
+        String result = userService.updateUserAvatar(multipartFile, id, request);
         return ResultUtils.success(result);
     }
 
@@ -259,7 +267,6 @@ public class UserController {
         String newPassword = resetPasswordRequest.getNewPassword();
         String checkPassword = resetPasswordRequest.getCheckPassword();
         String code = resetPasswordRequest.getCode();
-
         if (StrUtil.hasBlank(email, newPassword, checkPassword, code)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -305,6 +312,9 @@ public class UserController {
         User user = new User();
         BeanUtil.copyProperties(userUpdateRequest, user);
         boolean result = userService.updateById(user);
+
+        // todo 更新 ES 数据
+
         return ResultUtils.success(result);
     }
 
@@ -323,6 +333,9 @@ public class UserController {
                 .map(DeleteRequest::getId)
                 .collect(Collectors.toList());
         boolean result = userService.removeByIds(idList);
+
+        // todo 批量删除 ES 数据
+
         return ResultUtils.success(result);
     }
 
@@ -396,5 +409,22 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
+    /**
+     * 导出用户数据（仅管理员）
+     * @param exportRequest 导出请求
+     * @param httpRequest HTTP请求
+     * @param httpResponse HTTP响应
+     */
+    @PostMapping("/export")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public void exportUsers(@RequestBody UserExportRequest exportRequest,
+                            HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        try {
+            userService.exportUserData(exportRequest, httpRequest, httpResponse);
+        } catch (IOException e) {
+            log.error("导出用户数据失败", e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "导出数据失败");
+        }
+    }
 
 }

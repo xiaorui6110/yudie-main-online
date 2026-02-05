@@ -32,6 +32,9 @@
             <result property="likeCount" column="likeCount" jdbcType="BIGINT"/>
             <result property="shareCount" column="shareCount" jdbcType="BIGINT"/>
             <result property="viewCount" column="viewCount" jdbcType="BIGINT"/>
+            <result property="isFeature" column="isFeature" jdbcType="TINYINT"/>
+            <result property="isDownload" column="IsDownload" jdbcType="TINYINT"/>
+            <result property="recommendScore" column="recommendScore" jdbcType="DOUBLE"/>
     </resultMap>
 
     <sql id="Base_Column_List">
@@ -40,7 +43,7 @@
         userId,createTime,editTime,updateTime,isDelete,
         reviewStatus,reviewMessage,reviewerId,reviewTime,thumbnailUrl,
         spaceId,picColor,commentCount,likeCount,shareCount,
-        viewCount
+        viewCount,isFeature,IsDownload,recommendScore
     </sql>
 
     <select id="getTop100PictureByYear" resultMap="BaseResultMap">
@@ -72,5 +75,6 @@
         ORDER BY (likeCount * 0.4 + commentCount * 0.3 + viewCount * 0.2 + shareCount * 0.1) DESC, createTime DESC
         LIMIT 100
     </select>
+
 
 </mapper>

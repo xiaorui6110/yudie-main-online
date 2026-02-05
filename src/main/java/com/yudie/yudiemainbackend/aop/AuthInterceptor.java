@@ -22,8 +22,8 @@ import javax.servlet.http.HttpServletRequest;
  * @author: xiaorui
  * @date: 2025-05-22 15:15
  **/
-@Aspect
-@Component
+//@Aspect
+//@Component
 public class AuthInterceptor {
 
     @Resource

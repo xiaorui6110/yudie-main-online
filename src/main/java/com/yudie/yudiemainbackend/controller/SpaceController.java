@@ -167,8 +167,11 @@ public class SpaceController {
         long id = spaceUpdateRequest.getId();
         Space oldSpace = spaceService.getById(id);
         ThrowUtils.throwIf(oldSpace == null, ErrorCode.NOT_FOUND_ERROR);
-        // 更新MySQL
+        // 更新 MySQL
         boolean result = spaceService.updateById(space);
+
+        // todo 更新 ES
+
         return ResultUtils.success(result);
     }
 
@@ -203,6 +206,9 @@ public class SpaceController {
         }
         // 更新MySQL
         boolean result = spaceService.updateById(space);
+
+        // todo 更新 ES
+
         return ResultUtils.success(result);
     }
 
@@ -243,12 +249,15 @@ public class SpaceController {
         if (CollectionUtils.isEmpty(deleteRequestList)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        // 获取要删除的空间ID列表
+        // 获取要删除的空间 ID 列表
         List<Long> ids = deleteRequestList.stream()
                 .map(DeleteRequest::getId)
                 .collect(Collectors.toList());
-        // 批量删除MySQL数据
+        // 批量删除 MySQL 数据
         boolean result = spaceService.removeByIds(ids);
+
+        // todo 批量删除 ES 数据
+
         return ResultUtils.success(result);
     }
 }

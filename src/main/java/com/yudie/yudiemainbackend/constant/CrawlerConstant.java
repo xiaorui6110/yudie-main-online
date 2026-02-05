@@ -11,12 +11,12 @@ public class CrawlerConstant {
     /**
      * 警告计数
      */
-    public static final int WARN_COUNT = 30;
+    public static final int WARN_COUNT = 150;
 
     /**
      * 封禁计数
      */
-    public static final int BAN_COUNT= 50;
+    public static final int BAN_COUNT = 250;
 
     /**
      * 封禁角色

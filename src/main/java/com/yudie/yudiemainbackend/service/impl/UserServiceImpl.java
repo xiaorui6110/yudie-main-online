@@ -22,15 +22,14 @@ import com.yudie.yudiemainbackend.exception.ThrowUtils;
 import com.yudie.yudiemainbackend.manager.CrawlerManager;
 import com.yudie.yudiemainbackend.manager.FileManager;
 import com.yudie.yudiemainbackend.manager.auth.StpKit;
-import com.yudie.yudiemainbackend.manager.auth.model.SpaceUserPermissionConstant;
 import com.yudie.yudiemainbackend.mapper.UserSignInRecordMapper;
 import com.yudie.yudiemainbackend.model.dto.file.UploadPictureResult;
+import com.yudie.yudiemainbackend.model.dto.user.UserExportRequest;
 import com.yudie.yudiemainbackend.model.dto.user.UserModifyPassWord;
 import com.yudie.yudiemainbackend.model.dto.user.UserQueryRequest;
 import com.yudie.yudiemainbackend.model.entity.*;
 import com.yudie.yudiemainbackend.model.enums.UserRoleEnum;
 import com.yudie.yudiemainbackend.model.vo.LoginUserVO;
-import com.yudie.yudiemainbackend.model.vo.PictureVO;
 import com.yudie.yudiemainbackend.model.vo.UserVO;
 import com.yudie.yudiemainbackend.service.PictureService;
 import com.yudie.yudiemainbackend.service.PostAttachmentService;
@@ -39,6 +38,9 @@ import com.yudie.yudiemainbackend.service.UserService;
 import com.yudie.yudiemainbackend.mapper.UserMapper;
 import com.yudie.yudiemainbackend.utils.EmailSenderUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.redisson.api.RBitSet;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -48,7 +50,11 @@ import org.springframework.web.multipart.MultipartFile;
 import org.redisson.api.RedissonClient;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -242,7 +248,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 将验证码存入 Redis，设置 5 分钟过期
         String verifyCodeKey = String.format("email:code:verify:%s:%s", type, email);
         stringRedisTemplate.opsForValue().set(verifyCodeKey, code, 5, TimeUnit.MINUTES);
-
     }
 
     /**
@@ -537,6 +542,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         user.setUserAvatar(uploadPictureResult.getUrl());
         // 更新MySQL
         boolean result = userMapper.updateById(user) > 0;
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR,"修改头像失败");
         return uploadPictureResult.getUrl();
     }
 
@@ -705,14 +711,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                         admin.getUserAccount(),
                         isUnban ? "解封" : "封禁",
                         targetUser.getUserAccount());
-
-                // 7. 处理Redis缓存
+                // 7. 处理 Redis 缓存
                 String banKey = String.format("user:ban:%d", userId);
                 if (isUnban) {
                     stringRedisTemplate.delete(banKey);
                 } else {
                     stringRedisTemplate.opsForValue().set(banKey, "1");
                 }
+
+                // todo 更新 ES 中的用户信息（用户状态）
+
             }
             return result;
         } else {
@@ -739,6 +747,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 // 删除数据库记录
                 pictureService.remove(pictureQueryWrapper);
 
+                // todo 删除 ES 中的图片记录
+
             }
             // 2. 删除用户发布的帖子
             QueryWrapper<Post> postQueryWrapper = new QueryWrapper<>();
@@ -754,10 +764,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 postAttachmentService.remove(attachmentQueryWrapper);
                 // 删除帖子
                 postService.remove(postQueryWrapper);
+
+                // todo 删除 ES 中的帖子记录
+
             }
 
             // 3. 删除用户数据
             this.removeById(userId);
+
+            // todo 删除 ES 中的用户记录
+
             // 4. 清理相关缓存
             String userKey = String.format("user:ban:%d", userId);
             stringRedisTemplate.delete(userKey);
@@ -766,7 +782,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             log.error("删除用户相关数据失败, userId={}", userId, e);
             // 这里不抛出异常，因为是异步操作，主流程已经完成
         }
-
     }
 
     /**
@@ -884,6 +899,182 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR);
         // 获取图片VO
         return this.getUserVO(user);
+    }
+
+    /**
+     * 导出用户数据
+     * @param exportRequest 导出请求
+     * @param httpRequest HTTP请求
+     * @param httpResponse HTTP响应
+     */
+    @Override
+    public void exportUserData(UserExportRequest exportRequest, HttpServletRequest httpRequest,
+                               HttpServletResponse httpResponse) throws IOException {
+        ThrowUtils.throwIf(exportRequest == null, ErrorCode.PARAMS_ERROR);
+        try (HSSFWorkbook workbook = new HSSFWorkbook()) {
+            // 1. 创建工作表
+            HSSFSheet sheet = workbook.createSheet("Sheet1");
+            // 2. 创建表头
+            String[] headers = {"用户ID", "账号", "邮箱", "昵称", "角色", "创建时间", "状态"};
+            HSSFRow headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                sheet.setColumnWidth(i, 20 * 256);
+                headerRow.createCell(i).setCellValue(headers[i]);
+            }
+            // 3. 查询数据
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            setTimeRangeCondition(queryWrapper, exportRequest);
+            List<User> users = this.list(queryWrapper);
+            // 4. 填充数据
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            int rowIndex = 1;
+            for (User user : users) {
+                HSSFRow dataRow = sheet.createRow(rowIndex++);
+                dataRow.createCell(0).setCellValue(String.valueOf(user.getId()));
+                dataRow.createCell(1).setCellValue(user.getUserAccount());
+                dataRow.createCell(2).setCellValue(user.getEmail());
+                dataRow.createCell(3).setCellValue(user.getUserName());
+                dataRow.createCell(4).setCellValue(getUserRoleText(user.getUserRole()));
+                dataRow.createCell(5).setCellValue(user.getCreateTime() != null ?
+                        sdf.format(user.getCreateTime()) : "");
+                dataRow.createCell(6).setCellValue(getUserStatusText(user.getUserRole()));
+            }
+            // 5. 设置响应头
+            httpResponse.setContentType("application/vnd.ms-excel;charset=utf-8");
+            httpResponse.setCharacterEncoding("UTF-8");
+            // 6. 处理文件名
+            String fileName = generateExportFileName(exportRequest.getType(),
+                    exportRequest.getStartTime(), exportRequest.getEndTime());
+            httpResponse.setHeader("Content-Disposition",
+                    "attachment;filename=" + URLEncoder.encode(fileName, "UTF-8") + ".xls");
+            // 7. 写入响应
+            workbook.write(httpResponse.getOutputStream());
+        } catch (IOException e) {
+            log.error("导出用户数据失败", e);
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "导出失败");
+        }
+    }
+
+    /**
+     * 设置时间范围查询条件
+     * @param queryWrapper 查询条件
+     * @param userExportRequest 用户导出请求
+     */
+    private void setTimeRangeCondition(QueryWrapper<User> queryWrapper, UserExportRequest userExportRequest) {
+        Date now = new Date();
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(now);
+        // 根据类型设置时间范围
+        switch (userExportRequest.getType()) {
+            // 天
+            case 1:
+                calendar.set(Calendar.HOUR_OF_DAY, 0);
+                calendar.set(Calendar.MINUTE, 0);
+                calendar.set(Calendar.SECOND, 0);
+                queryWrapper.ge("createTime", calendar.getTime());
+                break;
+            // 周
+            case 2:
+                calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
+                calendar.set(Calendar.HOUR_OF_DAY, 0);
+                calendar.set(Calendar.MINUTE, 0);
+                calendar.set(Calendar.SECOND, 0);
+                queryWrapper.ge("createTime", calendar.getTime());
+                break;
+            // 月
+            case 3:
+                calendar.set(Calendar.DAY_OF_MONTH, 1);
+                calendar.set(Calendar.HOUR_OF_DAY, 0);
+                calendar.set(Calendar.MINUTE, 0);
+                calendar.set(Calendar.SECOND, 0);
+                queryWrapper.ge("createTime", calendar.getTime());
+                break;
+            // 年
+            case 4:
+                calendar.set(Calendar.MONTH, Calendar.JANUARY);
+                calendar.set(Calendar.DAY_OF_MONTH, 1);
+                calendar.set(Calendar.HOUR_OF_DAY, 0);
+                calendar.set(Calendar.MINUTE, 0);
+                calendar.set(Calendar.SECOND, 0);
+                queryWrapper.ge("createTime", calendar.getTime());
+                break;
+            // 自定义
+            case 5:
+                if (userExportRequest.getStartTime() != null) {
+                    queryWrapper.ge("createTime", userExportRequest.getStartTime());
+                }
+                if (userExportRequest.getEndTime() != null) {
+                    queryWrapper.le("createTime", userExportRequest.getEndTime());
+                }
+                break;
+            default:
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "不支持的导出类型");
+        }
+    }
+
+    /**
+     * 获取用户角色文本
+     * @param role 用户角色
+     * @return 用户角色文本
+     */
+    private String getUserRoleText(String role) {
+        if (UserConstant.ADMIN_ROLE.equals(role)) {
+            return "管理员";
+        } else if (UserConstant.DEFAULT_ROLE.equals(role)) {
+            return "普通用户";
+        } else if (CrawlerConstant.BAN_ROLE.equals(role)) {
+            return "已封禁";
+        }
+        return "未知";
+    }
+
+    /**
+     * 获取用户状态文本
+     * @param status 用户状态
+     * @return 用户状态文本
+     */
+    private String getUserStatusText(String status) {
+        if (CrawlerConstant.BAN_ROLE.equals(status)) {
+            return "已封禁";
+        }
+        return "正常";
+    }
+
+    /**
+     * 生成导出文件名
+     * @param type 类型
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @return 文件名
+     */
+    private String generateExportFileName(Integer type, Date startTime, Date endTime) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+        String periodStr;
+        switch (type) {
+            case 1:
+                periodStr = "日报";
+                break;
+            case 2:
+                periodStr = "周报";
+                break;
+            case 3:
+                periodStr = "月报";
+                break;
+            case 4:
+                periodStr = "年报";
+                break;
+            case 5:
+                if (startTime != null && endTime != null) {
+                    periodStr = sdf.format(startTime) + "-" + sdf.format(endTime);
+                } else {
+                    periodStr = "自定义";
+                }
+                break;
+            default:
+                periodStr = "未知";
+        }
+
+        return String.format("用户数据_%s", periodStr);
     }
 
 }

@@ -151,6 +151,22 @@ public class Picture implements Serializable {
      */
     private Long viewCount;
 
+
+    /**
+     * 是否精选 0-非精选 1-精选
+     */
+    private Integer isFeature;
+
+    /**
+     * 是否允许下载：0-禁止下载 1-允许下载
+     */
+    private Integer isDownload;
+
+    /**
+     * 推荐分数
+     */
+    private Double recommendScore;
+
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }

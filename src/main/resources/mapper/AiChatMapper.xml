@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yudie.yudiemainbackend.mapper.AiChatMapper">
+
+    <resultMap id="BaseResultMap" type="com.yudie.yudiemainbackend.model.entity.AiChat">
+            <id property="id" column="id" jdbcType="BIGINT"/>
+            <result property="userId" column="userId" jdbcType="BIGINT"/>
+            <result property="content" column="content" jdbcType="VARCHAR"/>
+            <result property="role" column="role" jdbcType="VARCHAR"/>
+            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+            <result property="isDeleted" column="isDeleted" jdbcType="TINYINT"/>
+            <result property="sessionId" column="sessionId" jdbcType="BIGINT"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,userId,content,role,createTime,isDeleted,
+        sessionId
+    </sql>
+
+    <insert id="batchInsert">
+        INSERT INTO ai_chat (userId,content,role,createTime,isDeleted,sessionId)
+        VALUES
+        <foreach collection="list" item="item" index="index" separator=",">
+            (#{item.userId},#{item.content},#{item.role},#{item.createTime},#{item.isDeleted},#{item.sessionId})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        content=VALUES(content)
+    </insert>
+</mapper>

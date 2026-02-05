@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
@@ -145,7 +146,6 @@ public class PictureController {
         return ResultUtils.success(picture);
     }
 
-
     /**
      * 批量操作图片（仅管理员可用）
      * @param pictureOperation 图片操作
@@ -217,7 +217,6 @@ public class PictureController {
             ThrowUtils.throwIf(userRole.equals(CrawlerConstant.BAN_ROLE),
                     ErrorCode.NOT_AUTH_ERROR, "封禁用户禁止获取数据,请联系管理员");
         }
-
         long size = pictureQueryRequest.getPageSize();
         ThrowUtils.throwIf(size > 50, ErrorCode.PARAMS_ERROR, "每页最多显示 50 条");
         crawlerManager.detectNormalRequest(request);
@@ -407,6 +406,38 @@ public class PictureController {
         pictureTagCategory.setTagList(tagList);
         pictureTagCategory.setCategoryList(categoryList);
         return ResultUtils.success(pictureTagCategory);
+    }
+
+    /**
+     * 设置图片精选状态
+     * @param pictureFeatureRequest 图片精选请求
+     * @param request 请求
+     * @return 是否成功
+     */
+    @PostMapping("/feature")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> setPictureFeature(@RequestBody PictureFeatureRequest pictureFeatureRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(pictureFeatureRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        boolean result = pictureService.setPictureFeature(pictureFeatureRequest, loginUser);
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 获取精选图片列表
+     * @param pictureQueryRequest 图片查询请求
+     * @param request 请求
+     * @return 精选图片列表
+     */
+    @PostMapping("/feature/list")
+    public BaseResponse<Page<PictureVO>> getFeaturePicture(@RequestBody PictureQueryRequest pictureQueryRequest,
+                                                           HttpServletRequest request) {
+        ThrowUtils.throwIf(pictureQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        long size = pictureQueryRequest.getPageSize();
+        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
+        crawlerManager.detectNormalRequest(request);
+        Page<PictureVO> picturePage = pictureService.getFeaturePicture(pictureQueryRequest, request);
+        return ResultUtils.success(picturePage);
     }
 
 }

@@ -27,7 +27,7 @@ import java.util.List;
  **/
 @Slf4j
 @Component
-public class UserSignInSyncJob {
+public class UserSignInSyncJob  {
 
     @Resource
     private RedissonClient redissonClient;

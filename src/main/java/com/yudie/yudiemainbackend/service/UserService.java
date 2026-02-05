@@ -1,6 +1,7 @@
 package com.yudie.yudiemainbackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.yudie.yudiemainbackend.model.dto.user.UserExportRequest;
 import com.yudie.yudiemainbackend.model.dto.user.UserModifyPassWord;
 import com.yudie.yudiemainbackend.model.dto.user.UserQueryRequest;
 import com.yudie.yudiemainbackend.model.entity.User;
@@ -10,6 +11,8 @@ import com.yudie.yudiemainbackend.model.vo.UserVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -202,5 +205,14 @@ public interface UserService extends IService<User> {
      */
     UserVO getUserVOById(Long id);
 
+    /**
+     * 导出用户数据
+     * @param exportRequest 导出请求
+     * @param httpRequest HTTP请求
+     * @param httpResponse HTTP响应
+     * @throws IOException IO异常
+     */
+    void exportUserData(UserExportRequest exportRequest, HttpServletRequest httpRequest,
+                        HttpServletResponse httpResponse) throws IOException;
 
 }

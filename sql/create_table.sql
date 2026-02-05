@@ -73,7 +73,10 @@ CREATE TABLE picture
     commentCount  bigint   DEFAULT 0                 NOT NULL COMMENT '评论数',
     likeCount     bigint   DEFAULT 0                 NOT NULL COMMENT '点赞数',
     shareCount    bigint   DEFAULT 0                 NOT NULL COMMENT '分享数',
-    viewCount     bigint   DEFAULT 0                 NOT NULL COMMENT '浏览量'
+    viewCount     bigint   DEFAULT 0                 NOT NULL COMMENT '浏览量',
+    isFeature     tinyint  DEFAULT 0                 NOT NULL COMMENT '是否精选 0-非精选 1-精选',
+    IsDownload    tinyint  DEFAULT 1                 NOT NULL COMMENT '是否允许下载：0-禁止下载 1-允许下载',
+    recommendScore double  DEFAULT 0                NOT NULL COMMENT '推荐分数'
 )
     COMMENT '图片表' COLLATE = utf8mb4_unicode_ci;
 
@@ -461,4 +464,77 @@ CREATE INDEX idx_chat_type
 
 CREATE INDEX idx_user_target
     ON private_chat (userId, targetUserId);
+
+-- 活动表
+CREATE TABLE activity
+(
+    id            bigint AUTO_INCREMENT COMMENT '活动ID'
+        PRIMARY KEY,
+    userId        bigint                             NOT NULL COMMENT '发布用户ID',
+    title         varchar(100)                       NOT NULL COMMENT '标题',
+    content       text                               NOT NULL COMMENT '内容',
+    coverUrl      varchar(255)                       NOT NULL COMMENT '封面图片URL',
+    viewCount     bigint   DEFAULT 0                 NULL COMMENT '浏览量',
+    likeCount     bigint   DEFAULT 0                 NULL COMMENT '点赞数',
+    commentCount  bigint   DEFAULT 0                 NULL COMMENT '评论数',
+    status        tinyint  DEFAULT 0                 NULL COMMENT '状态 0-待审核 1-已发布 2-已拒绝',
+    reviewMessage varchar(255)                       NULL COMMENT '审核信息',
+    createTime    datetime DEFAULT CURRENT_TIMESTAMP NULL COMMENT '创建时间',
+    updateTime    datetime DEFAULT CURRENT_TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    isDelete      tinyint  DEFAULT 0                 NULL COMMENT '是否删除',
+    shareCount    bigint   DEFAULT 0                 NULL COMMENT '分享数',
+    expireTime    datetime                           NOT NULL COMMENT '活动过期时间',
+    isExpired     tinyint  DEFAULT 0                 NOT NULL COMMENT '是否过期 0-未过期 1-已过期'
+)
+    COMMENT '活动表' COLLATE = utf8mb4_unicode_ci;
+
+CREATE INDEX idx_expireTime
+    ON activity (expireTime);
+
+CREATE INDEX idx_isExpired
+    ON activity (isExpired);
+
+CREATE INDEX idx_status
+    ON activity (status);
+
+CREATE INDEX idx_userId
+    ON activity (userId);
+
+-- AI 聊天消息表
+CREATE TABLE ai_chat
+(
+    id         bigint AUTO_INCREMENT COMMENT '主键'
+        PRIMARY KEY,
+    userId     bigint                                NOT NULL COMMENT '用户ID',
+    content    text                                  NOT NULL COMMENT '消息内容',
+    role       varchar(10) DEFAULT 'user'            NOT NULL COMMENT '角色类型（user-用户, assistant-AI助手）',
+    createTime datetime    DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    isDeleted  tinyint     DEFAULT 0                 NOT NULL COMMENT '是否删除（0-未删除，1-已删除）',
+    sessionId  bigint                                NOT NULL COMMENT '会话ID'
+)
+    COMMENT '聊天消息表';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
